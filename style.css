@@ -254,30 +254,3 @@ textarea.plain-field{padding:10px 12px}
 .dlg{background:var(--surface);color:var(--ink);border-radius:var(--r);padding:18px;width:min(92vw,360px);display:grid;gap:12px;box-shadow:0 12px 40px #0006}
 .dlg p{font-weight:700;line-height:1.7}
 .toast{position:fixed;inset-inline:16px;bottom:96px;z-index:130;background:var(--navy);color:#fff;padding:12px 14px;border-radius:14px;text-align:center;font-weight:700;box-shadow:0 8px 24px #0004;animation:viewIn .25s ease both}
-
-/* حالات المباريات */
-.status-badge,.status-select{display:inline-flex;align-items:center;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:800;border:1px solid transparent;margin-top:7px}
-.status-select{font-family:inherit;cursor:pointer;background:var(--surface);color:var(--ink)}
-.status-upcoming{background:#eef1f5;color:#566273;border-color:#cbd2dc}
-.status-live{background:#ffe7e7;color:#b42318;border-color:#f3b1ad}
-.status-finished{background:#e4f5e9;color:#187443;border-color:#a7dfba}
-html[data-theme="dark"] .status-upcoming{background:#29364b;color:#d7e0ef;border-color:#45536b}
-html[data-theme="dark"] .status-live{background:#512b32;color:#ffb8b8;border-color:#8d454e}
-html[data-theme="dark"] .status-finished{background:#173e32;color:#a7edc4;border-color:#28664e}
-.fx-status{margin-top:2px}
-.scorer-events{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-.scorer-chip{background:var(--hl);color:var(--head);border-radius:18px;padding:5px 9px;font-size:12px;font-weight:700}
-.scorer-add{margin-top:8px}
-.scorer-leaders{margin:10px 0}
-.scorer-dialog{display:grid;gap:10px;max-height:85vh;overflow:auto}
-.scorer-dialog label{display:grid;gap:5px;color:var(--ink);font-weight:700}
-.scorer-dialog .plain-field{width:100%;min-width:0}
-
-/* إضافات عرض حالة المباراة ومسجلي الأهداف */
-.fixture-scorers{margin:8px 0;padding-inline-start:22px;font-size:13px;color:var(--ink)}
-.fixture-scorer-form{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
-.fixture-scorer-form input:first-child{grid-column:1/-1}
-.fixture-scorer-form button{grid-column:1/-1}
-.fixture-card .fx-status{margin-top:7px}
-.fixture-card .status-select{max-width:190px}
-@media(max-width:420px){.fixture-scorer-form{grid-template-columns:1fr}}

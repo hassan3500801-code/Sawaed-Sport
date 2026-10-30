@@ -76,10 +76,11 @@ function tick(){
 }
 const DAYS_AR = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 function setNextMatch(f){
-  NEXT = f ? {...f} : null;
-  ['#mVs','#count','#mMeta','#details'].forEach(q => $(q).hidden = !f);
-  $('#mEmpty').hidden = !!f;
-  if(!f) return;
+  const valid = f && Number.isFinite(new Date(f.at).getTime());
+  NEXT = valid ? {...f} : null;
+  ['#mVs','#count','#mMeta','#details'].forEach(q => $(q).hidden = !valid);
+  $('#mEmpty').hidden = !!valid;
+  if(!valid){ $('#count').textContent=''; return; }
   const d = new Date(f.at), p = n => String(n).padStart(2,'0'), hr = d.getHours();
   $('#mA').textContent = f.a; $('#mB').textContent = f.b;
   $('#mDay').textContent = DAYS_AR[d.getDay()];
