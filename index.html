@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>سواعد</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="splash" id="splash" role="presentation">
+  <img src="logo.png" alt="شعار سواعد" class="splash-logo" width="240" height="240">
+  <h1 class="splash-title">سواعد</h1>
+  <p class="splash-tag">معاً نصنع الأفضل .. داخل وخارج الملعب</p>
+  <span class="splash-bar"><i></i></span>
+</div>
+<div class="app">
+  <header class="top">
+    <button class="icon-btn" id="bell" aria-label="الإشعارات"><span data-icon="bell"></span><b class="badge" id="badge">3</b></button>
+    <div class="brand">
+      <img src="logo.png" alt="شعار سواعد" class="logo" width="72" height="72">
+      <h1>سواعد</h1>
+      <p class="tag"><span>معاً نصنع الأفضل .. داخل وخارج الملعب</span></p>
+    </div>
+    <button class="icon-btn" id="menuBtn" aria-label="القائمة"><span data-icon="menu"></span></button>
+  </header>
+
+  <main>
+    <section id="home" class="view active">
+      <div class="slider" id="slider">
+        <div class="slides" id="slides">
+          <article class="slide"><h2>سواعد..</h2><p>أكثر من مجرد دفعة</p></article>
+          <article class="slide"><h2>بطولات الأسبوع</h2><p>سجّل فريقك قبل إغلاق الباب</p></article>
+          <article class="slide"><h2>ترتيب الفرق</h2><p>الترتيب الإجمالي لكل الفرق</p></article>
+        </div>
+        <div class="dots" id="dots"></div>
+      </div>
+
+      <div class="sports" id="sportRow" role="tablist" aria-label="الرياضات"></div>
+
+      <div class="duo">
+        <section class="card navy" aria-labelledby="mt">
+          <h3 id="mt"><span data-icon="calendar"></span>المباراة القادمة</h3>
+          <p class="next-empty" id="mEmpty">لا توجد مباراة قادمة حتى الآن.</p>
+          <div class="vs" id="mVs" hidden>
+            <div class="side"><span class="shield gold-line"></span><b id="mA"></b></div>
+            <i>VS</i>
+            <div class="side"><span class="shield"></span><b id="mB"></b></div>
+          </div>
+          <div class="count" id="count" aria-live="off" hidden></div>
+          <ul class="meta" id="mMeta" hidden>
+            <li><span data-icon="calendar"></span><small id="mDay"></small><span id="mDate"></span></li>
+            <li><span data-icon="clock"></span><small>الساعة</small><span id="mTime"></span></li>
+            <li><span data-icon="pin"></span><small id="mVenue"></small></li>
+          </ul>
+          <button class="cta" id="details" hidden>تفاصيل المباراة</button>
+        </section>
+
+        <section class="card light" aria-labelledby="rk" id="rankCard">
+          <h3 id="rk"><span data-icon="trophy"></span>ترتيب الفرق</h3>
+          <ol class="rank" id="rank"></ol>
+          <div id="rankAdmin"></div>
+        </section>
+      </div>
+
+      <div class="head-row"><h3>آخر الأحداث</h3><button class="link" data-go="matches">عرض الكل</button></div>
+      <div class="events" id="events"></div>
+    </section>
+
+    <section id="sports" class="view"><h2 class="title">الفرق</h2><p class="note">معلومات الفرق والأندية ولاعبيها. التعديل والإضافة والحذف متاحة للمدير والمشرفين الذين يختارهم.</p><div id="teamsApp"><div class="list" id="sportList"></div></div></section>
+    <section id="teamview" class="view"></section>
+    <section id="matches" class="view"><h2 class="title">المباريات</h2><div id="fixtureAdmin"></div><div class="list" id="matchList"></div></section>
+    <section id="tournaments" class="view"><h2 class="title">البطولات</h2><p class="note">أنشئ البطولة أولًا، ثم أضف إليها الفرق، ثم ابدأها لتظهر المباريات والترتيب التلقائي.</p><div id="tournamentApp"></div></section>
+    <section id="tview" class="view"></section>
+    <section id="account" class="view"><h2 class="title">حسابي</h2><div id="authApp"><p class="note">سجّل الدخول أو أنشئ حساب طالب برقم جلوسك المكوّن من 6 أرقام.</p><div class="auth-switch"><button class="chip" data-auth-mode="login" aria-selected="true">تسجيل الدخول</button><button class="chip" data-auth-mode="signup" aria-selected="false">حساب جديد</button></div><form id="authForm"><label class="auth-label" hidden>الاسم الكامل<input class="field auth-field" id="authName" autocomplete="name" maxlength="100" placeholder="الاسم الكامل"></label><label class="auth-label" hidden>رقم الجلوس (6 أرقام)<input class="field auth-field" id="authSeat" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="123456"></label><label class="auth-label">البريد الإلكتروني<input class="field auth-field" id="authEmail" type="email" autocomplete="email" required placeholder="student@gmail.com"></label><label class="auth-label">كلمة المرور<input class="field auth-field" id="authPassword" type="password" minlength="8" autocomplete="current-password" required placeholder="8 أحرف على الأقل"></label><p class="err" id="authError" role="alert"></p><button class="cta" type="submit" id="authSubmit">تسجيل الدخول</button></form><p class="note">التسجيل يتطلب رقم جلوس يضيفه المدير إلى القائمة المعتمدة، والتحقق من البريد الإلكتروني. لن تُفعّل الحسابات قبل تأكيد أهلية الطالب.</p></div></section>
+    <section id="settings" class="view"><h2 class="title">الإعدادات</h2><label class="row"><span>تنبيهات المباريات</span><input type="checkbox" id="notifToggle" checked></label><label class="row" style="margin-top:10px"><span>الوضع الداكن</span><input type="checkbox" id="darkToggle"></label></section>
+    <section id="sportview" class="view"></section>
+  </main>
+
+  <nav class="bar" id="bar" aria-label="التنقل الرئيسي"></nav>
+
+  <div class="sheet-back" id="pBack" hidden></div>
+  <aside class="drawer panel" id="menuDrawer" aria-label="القائمة" hidden>
+    <div class="dh"><h3>القائمة</h3><button class="icon-btn" data-close aria-label="إغلاق">✕</button></div>
+    <nav id="menuNav" aria-label="التنقل"></nav>
+    <button class="mi" id="sendBtn" hidden>إرسال إشعار</button>
+  </aside>
+  <div class="sheet panel" id="notifSheet" role="dialog" aria-modal="true" aria-labelledby="notifTitle" hidden>
+    <h3 id="notifTitle">الإشعارات</h3>
+    <div class="nlist" id="nlist"></div>
+    <button class="cta" data-close>إغلاق</button>
+  </div>
+  <div class="sheet panel" id="sendSheet" role="dialog" aria-modal="true" aria-labelledby="sendTitle" hidden>
+    <h3 id="sendTitle">إرسال إشعار</h3>
+    <input class="field txt" id="nTitle" maxlength="60" placeholder="عنوان الإشعار" aria-label="عنوان الإشعار">
+    <textarea class="field txt" id="nText" rows="3" maxlength="240" placeholder="نص الإشعار" aria-label="نص الإشعار"></textarea>
+    <p class="err" id="nErr" role="alert"></p>
+    <button class="cta" id="nSend">إرسال</button>
+    <button class="link" data-close style="width:100%">إلغاء</button>
+  </div>
+  <div class="sheet-back" id="back" hidden></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+    <h3 id="sheetTitle">تفاصيل المباراة</h3>
+    <p id="sheetBody"></p>
+    <button class="cta" id="closeSheet">إغلاق</button>
+  </div>
+</div>
+<script>
+(function(){var s=document.getElementById('splash');if(!s)return;var done=false;
+function hide(){if(done)return;done=true;s.classList.add('out');setTimeout(function(){s.remove()},500);}
+setTimeout(hide,2200);s.addEventListener('click',hide);})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="script.js"></script>
+<script src="config.js"></script>
+<script src="backend.js"></script>
+</body>
+</html>
