@@ -265,3 +265,77 @@ alter table public.team_catalog add column if not exists logo text not null defa
 alter table public.team_catalog drop constraint if exists team_catalog_logo_check;
 alter table public.team_catalog add constraint team_catalog_logo_check
   check (logo = '' or (logo like 'data:image/%' and char_length(logo) <= 300000));
+
+
+-- =========================================================
+-- سواعد: هدافون وصنّاع أهداف، حالة المباريات، اعتماد تلقائي
+-- =========================================================
+create table if not exists public.match_scorers (
+  id text primary key,
+  match_id text not null references public.matches(id) on delete cascade,
+  tournament_id text not null references public.tournaments(id) on delete cascade,
+  team_id text references public.teams(id) on delete set null,
+  player_name text not null check (char_length(player_name) between 1 and 40),
+  event_type text not null check (event_type in ('goal','assist')),
+  minute integer check (minute is null or minute between 0 and 130),
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now()
+);
+create index if not exists match_scorers_tournament_idx on public.match_scorers(tournament_id);
+create index if not exists match_scorers_match_idx on public.match_scorers(match_id);
+alter table public.match_scorers enable row level security;
+drop policy if exists "approved users read match scorers" on public.match_scorers;
+create policy "approved users read match scorers" on public.match_scorers for select to authenticated
+using (public.is_sawaed_manager() or exists(select 1 from public.profiles p where p.id=auth.uid() and p.approved=true));
+drop policy if exists "managers manage match scorers" on public.match_scorers;
+create policy "managers manage match scorers" on public.match_scorers for all to authenticated
+using (public.is_sawaed_manager()) with check (public.is_sawaed_manager());
+
+alter table public.fixtures add column if not exists status text not null default 'upcoming';
+alter table public.fixtures drop constraint if exists fixtures_status_check;
+alter table public.fixtures add constraint fixtures_status_check check (status in ('upcoming','live','finished'));
+
+create or replace function public.handle_new_sawaed_user()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+declare v_seat text; v_name text;
+begin
+  v_seat := coalesce(new.raw_user_meta_data->>'seat_number','');
+  v_name := trim(coalesce(new.raw_user_meta_data->>'full_name',''));
+  if v_seat !~ '^[0-9]{6}$' or v_name = '' then
+    raise exception 'يرجى إدخال الاسم ورقم جلوس صحيح من 6 أرقام';
+  end if;
+  update public.approved_seat_numbers set claimed_by = new.id
+    where seat_number = v_seat and claimed_by is null;
+  if not found then raise exception 'رقم الجلوس غير معتمد أو مستخدم'; end if;
+  insert into public.profiles(id, full_name, seat_number, role, approved)
+    values(new.id, v_name, v_seat, 'student', true);
+  return new;
+end;
+$$;
+drop trigger if exists on_auth_user_created_sawaed on auth.users;
+create trigger on_auth_user_created_sawaed after insert on auth.users
+for each row execute procedure public.handle_new_sawaed_user();
+
+update public.profiles p set approved = true
+where p.approved = false
+and exists (select 1 from auth.users u where u.id = p.id and u.email_confirmed_at is not null);
+
+
+
+-- مسجلو أهداف المباريات العامة
+create table if not exists public.fixture_scorers (
+  id text primary key,
+  fixture_id text not null references public.fixtures(id) on delete cascade,
+  player_name text not null check (char_length(player_name) between 1 and 50),
+  team_side text not null check (team_side in ('a','b')),
+  minute integer check (minute is null or minute between 0 and 130),
+  created_at timestamptz not null default now()
+);
+create index if not exists fixture_scorers_fixture_idx on public.fixture_scorers(fixture_id);
+alter table public.fixture_scorers enable row level security;
+drop policy if exists "everyone reads fixture scorers" on public.fixture_scorers;
+create policy "everyone reads fixture scorers" on public.fixture_scorers for select to anon, authenticated using (true);
+drop policy if exists "managers manage fixture scorers" on public.fixture_scorers;
+create policy "managers manage fixture scorers" on public.fixture_scorers for all to authenticated
+using (public.is_sawaed_manager()) with check (public.is_sawaed_manager());

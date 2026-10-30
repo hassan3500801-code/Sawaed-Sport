@@ -34,7 +34,7 @@
   }
   function renderAuthState(){
     const host=$('#authApp'); if(!host)return;
-    if(currentUser){host.innerHTML=`<div class="panel-card"><h3>مرحبًا ${esc(profile?.full_name||currentUser.email)}</h3><p class="muted">البريد: ${esc(currentUser.email)}</p><p class="muted">رقم الجلوس: ${esc(profile?.seat_number||'—')}</p><p class="status-pill">${profile?.approved?'حساب موثّق':'بانتظار موافقة المدير'}</p><button class="cta" id="signOutBtn">تسجيل الخروج</button></div>`;$('#signOutBtn').onclick=async()=>{await sb.auth.signOut();currentUser=null;profile=null;location.reload();};return;}
+    if(currentUser){host.innerHTML=`<div class="panel-card"><h3>مرحبًا ${esc(profile?.full_name||currentUser.email)}</h3><p class="muted">البريد: ${esc(currentUser.email)}</p><p class="muted">رقم الجلوس: ${esc(profile?.seat_number||'—')}</p><p class="status-pill">حساب موثّق ✓</p><button class="cta" id="signOutBtn">تسجيل الخروج</button></div>`;$('#signOutBtn').onclick=async()=>{await sb.auth.signOut();currentUser=null;profile=null;location.reload();};return;}
     // Keep the signup/login form from index.html visible.
     const form=$('#authForm'); if(form){form.hidden=false;}
   }
@@ -47,7 +47,7 @@
       if(error||!data){msg('#authError','رقم الجلوس غير معتمد أو مستخدم مسبقًا. راجع المدير.');return;}
       const {data:signup,error:signErr}=await sb.auth.signUp({email,password,options:{data:{full_name:name,seat_number:seat}}});
       if(signErr){msg('#authError',signErr.message);return;}
-      msg('#authError','تم إرسال رسالة التحقق إن كان إعداد البريد مفعّلًا. أكمل التحقق ثم انتظر اعتماد المدير.',true);
+      msg('#authError','تم إنشاء الحساب. بعد التحقق من البريد ستتمكن من الدخول مباشرة.',true);
     } else {const {error}=await sb.auth.signInWithPassword({email,password});if(error){msg('#authError','تعذر تسجيل الدخول. تحقق من البريد وكلمة المرور.');return;}await refreshUser();}
   }
   const uid = () => 't_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
@@ -144,6 +144,12 @@
     const dt=(oldTeams||[]).filter(x=>!keepT.has(x.id)).map(x=>x.id);if(dt.length){r=await sb.from('teams').delete().in('id',dt);if(r.error)throw r.error;}
     if(t.teams.length){r=await sb.from('teams').upsert(t.teams.map(x=>({id:x.id,tournament_id:t.id,name:x.name})));if(r.error)throw r.error;}
     if(t.matches.length){r=await sb.from('matches').upsert(t.matches.map(m=>({id:m.id,tournament_id:t.id,round_name:m.round,group_name:m.group||null,team_a_id:m.a||null,team_b_id:m.b||null,score_a:m.sa??null,score_b:m.sb??null,winner_team_id:m.winner||null})));if(r.error)throw r.error;}
+    const {data:oldScorers,error:e3}=await sb.from('match_scorers').select('id').eq('tournament_id',t.id);if(e3)throw e3;
+    const allScorers=t.matches.flatMap(m=>(m.scorers||[]).map(x=>({...x,match_id:m.id,tournament_id:t.id})));
+    const keepS=new Set(allScorers.map(x=>x.id));
+    const ds=(oldScorers||[]).filter(x=>!keepS.has(x.id)).map(x=>x.id);
+    if(ds.length){r=await sb.from('match_scorers').delete().in('id',ds);if(r.error)throw r.error;}
+    if(allScorers.length){r=await sb.from('match_scorers').upsert(allScorers.map(x=>({id:x.id,match_id:x.match_id,tournament_id:t.id,team_id:keepT.has(x.team_id)?x.team_id:null,player_name:x.player_name,event_type:x.event_type,minute:x.minute??null,created_by:currentUser?.id||null})));if(r.error)throw r.error;}
   }
   async function saveT(t){
     if(!sb){putLocal(localKey,localTournaments);return null;}
@@ -153,11 +159,11 @@
   async function loadTournaments(){
     if(!sb)return localTournaments;
     const {data,error}=await sb.from('tournaments').select('*').order('created_at',{ascending:false});if(error)throw error;
-    const [tm,mt]=await Promise.all([sb.from('teams').select('*'),sb.from('matches').select('*')]);if(tm.error)throw tm.error;if(mt.error)throw mt.error;
+    const [tm,mt,sc]=await Promise.all([sb.from('teams').select('*'),sb.from('matches').select('*'),sb.from('match_scorers').select('*')]);if(tm.error)throw tm.error;if(mt.error)throw mt.error;if(sc.error)throw sc.error;
     const sortBy=(arr,order)=>{if(!Array.isArray(order))return arr;const ix=new Map(order.map((id,i)=>[id,i]));return [...arr].sort((a,b)=>(ix.has(a.id)?ix.get(a.id):1e9)-(ix.has(b.id)?ix.get(b.id):1e9));};
     return data.map(r=>{const c=r.config||{};return {id:r.id,name:r.name,sport:r.sport,format:r.format,status:r.status,qualifiers:c.qualifiers||2,groups:c.groups||[],rounds:c.rounds||[],champion:c.champion||undefined,
       teams:sortBy(tm.data.filter(x=>x.tournament_id===r.id).map(x=>({id:x.id,name:x.name})),c.teamOrder),
-      matches:sortBy(mt.data.filter(x=>x.tournament_id===r.id).map(x=>({id:x.id,round:x.round_name,group:x.group_name||undefined,a:x.team_a_id,b:x.team_b_id,sa:x.score_a,sb:x.score_b,winner:x.winner_team_id})),c.matchOrder)};});
+      matches:sortBy(mt.data.filter(x=>x.tournament_id===r.id).map(x=>({id:x.id,round:x.round_name,group:x.group_name||undefined,a:x.team_a_id,b:x.team_b_id,sa:x.score_a,sb:x.score_b,winner:x.winner_team_id,scorers:sc.data.filter(z=>z.match_id===x.id).map(z=>({id:z.id,team_id:z.team_id,player_name:z.player_name,event_type:z.event_type,minute:z.minute}))})),c.matchOrder)};});
   }
   const sportOptions=cur=>sports.map(s=>`<option${s===cur?' selected':''}>${esc(s)}</option>`).join('');
   async function renderTournaments(){
@@ -183,9 +189,46 @@
     const rows=standings(teams,matches);
     return `${title?`<h4 class="rh">${esc(title)}</h4>`:''}<div class="tbl-wrap"><table class="data-table"><tr><th>#</th><th>الفريق</th><th>لعب</th><th>ف</th><th>ت</th><th>خ</th><th>له</th><th>عليه</th><th>فرق</th><th>نقاط</th></tr>${rows.map((r,i)=>`<tr class="${qual&&i<qual?'qual':''}"><td>${i+1}</td><td class="tm">${avatar(r.name,logoByName(r.name).logo,'sm')}<span>${esc(r.name)}</span></td><td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.gf}</td><td>${r.ga}</td><td>${r.gf-r.ga}</td><td><b>${r.pts}</b></td></tr>`).join('')}</table></div>`;
   }
+  function aggregateScorers(t){
+    const totals={goals:new Map(),assists:new Map()};
+    (t.matches||[]).forEach(m=>(m.scorers||[]).forEach(x=>{
+      const key=String(x.player_name||'').trim();if(!key)return;
+      const bucket=x.event_type==='goal'?totals.goals:totals.assists;
+      bucket.set(key,(bucket.get(key)||0)+1);
+    }));
+    const sort=map=>[...map].map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'ar'));
+    return {goals:sort(totals.goals),assists:sort(totals.assists)};
+  }
+  function scorerLeaders(rows,title){
+    if(!rows.length)return '';
+    return `<section class="panel-card scorer-leaders"><h3>${title}</h3><ol class="rank">${rows.map((x,i)=>`<li><span class="n">${i+1}</span><span class="nm">${esc(x.name)}</span><span class="pt">${x.count}</span></li>`).join('')}</ol></section>`;
+  }
+  async function openScorerDialog(t,m,existing){
+    const old=existing||{},overlay=document.createElement('div');overlay.className='dlg-back';
+    const opts=t.teams.map(x=>`<option value="${esc(x.id)}"${(old.team_id||m.a)===x.id?' selected':''}>${esc(x.name)}</option>`).join('');
+    overlay.innerHTML=`<form class="dlg scorer-dialog"><h3>${old.id?'تعديل حدث':'إضافة هدف أو تمريرة'}</h3>
+      <label>نوع الحدث<select name="event_type" class="plain-field"><option value="goal"${old.event_type!=='assist'?' selected':''}>هدف</option><option value="assist"${old.event_type==='assist'?' selected':''}>تمريرة حاسمة</option></select></label>
+      <label>الفريق<select name="team_id" class="plain-field">${opts}</select></label>
+      <label>اسم اللاعب<input name="player_name" class="plain-field" maxlength="40" required value="${esc(old.player_name||'')}"></label>
+      <label>الدقيقة (اختياري)<input name="minute" class="plain-field" type="number" min="0" max="130" value="${old.minute??''}"></label>
+      <div class="action-row"><button class="cta" type="submit">حفظ</button>${old.id?'<button class="danger" type="button" data-scorer-delete>حذف</button>':''}<button class="secondary" type="button" data-scorer-cancel>إلغاء</button></div></form>`;
+    document.body.appendChild(overlay);
+    const close=()=>overlay.remove();
+    overlay.querySelector('[data-scorer-cancel]').onclick=close;
+    overlay.onclick=e=>{if(e.target===overlay)close();};
+    overlay.querySelector('form').onsubmit=async e=>{
+      e.preventDefault();const fd=new FormData(e.target),name=String(fd.get('player_name')).trim(),minute=String(fd.get('minute')).trim();
+      if(!name||name.length>40){toast('أدخل اسم لاعب صحيحًا.');return;}
+      if(minute!==''&&(!Number.isInteger(Number(minute))||Number(minute)<0||Number(minute)>130)){toast('الدقيقة يجب أن تكون بين 0 و130.');return;}
+      const row={id:old.id||uid(),team_id:String(fd.get('team_id')||''),player_name:name,event_type:String(fd.get('event_type')),minute:minute===''?null:Number(minute)};
+      m.scorers=m.scorers||[];if(old.id)m.scorers=m.scorers.map(x=>x.id===old.id?row:x);else m.scorers.push(row);
+      close();const err=await saveT(t);if(err)toast(err);renderTView();
+    };
+    const del=overlay.querySelector('[data-scorer-delete]');if(del)del.onclick=async()=>{if(!await uiConfirm('حذف هذا الحدث؟'))return;m.scorers=(m.scorers||[]).filter(x=>x.id!==old.id);close();const err=await saveT(t);if(err)toast(err);renderTView();};
+  }
   function matchCard(t,m,admin){
-    const bye=!m.b;
-    return `<div class="panel-card mcard"><div class="mrow"><span class="mtn">${esc(tn(t,m.a))}</span><span class="ms">${bye?'—':(m.sa??'-')+' : '+(m.sb??'-')}</span><span class="mtn">${bye?'يتأهل مباشرة':esc(tn(t,m.b))}</span></div>${admin&&!bye?`<div class="action-row"><input class="mini-score" type="number" inputmode="numeric" min="0" max="99" data-sc="a" data-m="${esc(m.id)}" value="${m.sa??''}" aria-label="نتيجة ${esc(tn(t,m.a))}"><input class="mini-score" type="number" inputmode="numeric" min="0" max="99" data-sc="b" data-m="${esc(m.id)}" value="${m.sb??''}" aria-label="نتيجة ${esc(tn(t,m.b))}"><button data-t-save="${esc(m.id)}">حفظ النتيجة</button>${t.format==='league'?`<button class="danger" data-t-delm="${esc(m.id)}">حذف</button>`:''}</div>`:''}</div>`;
+    const bye=!m.b,events=(m.scorers||[]);
+    return `<div class="panel-card mcard"><div class="mrow"><span class="mtn">${esc(tn(t,m.a))}</span><span class="ms">${bye?'—':(m.sa??'-')+' : '+(m.sb??'-')}</span><span class="mtn">${bye?'يتأهل مباشرة':esc(tn(t,m.b))}</span></div>${admin&&!bye?`<div class="action-row"><input class="mini-score" type="number" inputmode="numeric" min="0" max="99" data-sc="a" data-m="${esc(m.id)}" value="${m.sa??''}" aria-label="نتيجة ${esc(tn(t,m.a))}"><input class="mini-score" type="number" inputmode="numeric" min="0" max="99" data-sc="b" data-m="${esc(m.id)}" value="${m.sb??''}" aria-label="نتيجة ${esc(tn(t,m.b))}"><button data-t-save="${esc(m.id)}">حفظ النتيجة</button>${t.format==='league'?`<button class="danger" data-t-delm="${esc(m.id)}">حذف</button>`:''}</div>`:''}${admin&&!bye?`<button class="chip scorer-add" data-scorer-add="${esc(m.id)}">+ هدف/تمريرة</button>`:''}${events.length?`<div class="scorer-events">${events.map(x=>`<button class="scorer-chip" data-scorer-edit="${esc(m.id)}" data-scorer-id="${esc(x.id)}">${x.event_type==='goal'?'⚽ هدف':'👟 تمريرة'} · ${esc(x.player_name)}${x.minute!=null?' · '+x.minute+'′':''}</button>`).join('')}</div>`:''}</div>`;
   }
   function renderTView(){
     const host=$('#tview');if(!host)return;const t=tList.find(x=>x.id===openTid);
@@ -208,6 +251,7 @@
       h+='<p class="note">الترتيب يتحدّث تلقائيًا حسب النقاط ثم فارق الأهداف.</p>';
       if(t.format==='league')h+=standingsTable(t,t.teams,t.matches,'ترتيب الدوري');
       if(t.format==='groups')h+=t.groups.map(g=>standingsTable(t,g.teams.map(id=>t.teams.find(x=>x.id===id)).filter(Boolean),t.matches.filter(m=>m.group===g.name),'المجموعة '+g.name,Number(t.qualifiers)||2)).join('')+'<p class="muted">الصفوف المظللة هي الفرق المتأهلة.</p>';
+      const leaders=aggregateScorers(t);h+=scorerLeaders(leaders.goals,'هدافو البطولة')+scorerLeaders(leaders.assists,'صنّاع الأهداف');
       const rounds=[];t.matches.forEach(m=>{let r=rounds.find(x=>x.name===m.round);if(!r)rounds.push(r={name:m.round,list:[]});r.list.push(m);});
       h+='<h3 class="rh">المباريات والنتائج</h3>'+rounds.map(r=>`<h4 class="rh">${esc(r.name)}</h4>${r.list.map(m=>matchCard(t,m,admin)).join('')}`).join('');
       if(t.format!=='league'&&admin)h+='<p class="muted">في الأدوار الإقصائية لا يوجد تعادل، ويُولَّد الدور التالي تلقائيًا عند اكتمال نتائج الدور.</p>';
@@ -232,6 +276,8 @@
       if(q('[data-t-start]')&&reg){let er=null;await commit(()=>{try{generate(t);}catch(x){er=x.message;}});if(er)toast(er);return;}
       if(q('[data-t-reopen]')){if(!await uiConfirm('سيتم حذف كل المباريات والنتائج وإعادة فتح التسجيل. متابعة؟'))return;await commit(()=>{t.status='registration';t.matches=[];t.groups=[];t.rounds=[];delete t.champion;});return;}
       if(q('[data-t-delm]')){if(!await uiConfirm('حذف هذه المباراة؟'))return;const id=q('[data-t-delm]').dataset.tDelm;await commit(()=>{t.matches=t.matches.filter(x=>x.id!==id);recompute(t);});return;}
+      const addSc=q('[data-scorer-add]');if(addSc){const m=t.matches.find(x=>x.id===addSc.dataset.scorerAdd);if(m)openScorerDialog(t,m,null);return;}
+      const editSc=q('[data-scorer-edit]');if(editSc){const m=t.matches.find(x=>x.id===editSc.dataset.scorerEdit),x=m?.scorers?.find(z=>z.id===editSc.dataset.scorerId);if(m&&x)openScorerDialog(t,m,x);return;}
       const sv=q('[data-t-save]');if(sv){
         const m=t.matches.find(x=>x.id===sv.dataset.tSave);if(!m)return;
         const ia=host.querySelector(`[data-sc="a"][data-m="${CSS.escape(m.id)}"]`),ib=host.querySelector(`[data-sc="b"][data-m="${CSS.escape(m.id)}"]`);
@@ -375,14 +421,16 @@
   const fmtTime=d=>{const h=d.getHours();return `${h%12||12}:${pad2(d.getMinutes())} ${h<12?'ص':'م'}`;};
   const sportIcon=name=>{try{return (SPORTS.find(x=>x.name===name)||{}).icon||'trophy';}catch{return 'trophy';}};
   async function loadFixtures(){
-    if(sb){const {data,error}=await sb.from('fixtures').select('*').order('scheduled_at',{ascending:true});if(!error&&data)return data.map(r=>({id:r.id,sport:r.sport,a:r.team_a,b:r.team_b,at:r.scheduled_at,venue:r.venue||''}));}
+    if(sb){const [{data,error},{data:scorers,error:scError}]=await Promise.all([sb.from('fixtures').select('*').order('scheduled_at',{ascending:true}),sb.from('fixture_scorers').select('*').order('created_at',{ascending:true})]);if(!error&&!scError)return (data||[]).map(r=>({id:r.id,sport:r.sport,a:r.team_a,b:r.team_b,at:r.scheduled_at,venue:r.venue||'',status:r.status||'upcoming',scorers:(scorers||[]).filter(x=>x.fixture_id===r.id)}));if(error)console.warn(error);if(scError)console.warn(scError);}
     return localFixtures;
   }
   // القادمة أولًا (الأقرب فالأبعد) ثم المنتهية (الأحدث فالأقدم)
   function sortFixtures(list){const now=Date.now();const up=list.filter(f=>+new Date(f.at)>=now).sort((x,y)=>new Date(x.at)-new Date(y.at));const past=list.filter(f=>+new Date(f.at)<now).sort((x,y)=>new Date(y.at)-new Date(x.at));return [...up,...past];}
+  const FX_STATUS={upcoming:'لم تبدأ بعد',live:'جارية',finished:'انتهت'};
   function fixtureCard(f,admin){
-    const d=new Date(f.at),ic=typeof svg==='function'?svg(ICON[sportIcon(f.sport)],30):'',cal=typeof svg==='function'?svg(ICON.calendar,14):'';
-    return `<article class="ev"><div class="pic">${ic}</div><div style="flex:1;min-width:0"><h4>${esc(f.a)} × ${esc(f.b)}</h4><p>${esc(f.sport)}${f.venue?' · '+esc(f.venue):''}</p><time>${cal}${fmtDate(d)} · ${fmtTime(d)}</time></div>${admin?`<button class="danger fx-del" data-fx-del="${esc(f.id)}" aria-label="حذف المباراة">حذف</button>`:''}</article>`;
+    const d=new Date(f.at),ic=typeof svg==='function'?svg(ICON[sportIcon(f.sport)],30):'',cal=typeof svg==='function'?svg(ICON.calendar,14):'',st=f.status||'upcoming';
+    const scorerList=(f.scorers||[]).map(x=>`<li>${esc(x.player_name)} — ${x.team_side==='a'?esc(f.a):esc(f.b)}${x.minute!=null?' · '+x.minute+'′':''}</li>`).join('');
+    return `<article class="ev fixture-card"><div class="pic">${ic}</div><div style="flex:1;min-width:0"><h4>${esc(f.a)} × ${esc(f.b)}</h4><p>${esc(f.sport)}${f.venue?' · '+esc(f.venue):''}</p><time>${cal}${fmtDate(d)} · ${fmtTime(d)}</time><div class="fx-status">${admin?`<select class="status-select status-${st}" data-fx-status="${esc(f.id)}" aria-label="حالة المباراة"><option value="upcoming"${st==='upcoming'?' selected':''}>لم تبدأ بعد</option><option value="live"${st==='live'?' selected':''}>جارية</option><option value="finished"${st==='finished'?' selected':''}>انتهت</option></select>`:`<span class="status-badge status-${st}">${FX_STATUS[st]||'لم تبدأ بعد'}</span>`}</div>${scorerList?`<ul class="fixture-scorers">${scorerList}</ul>`:''}${admin?`<form class="fixture-scorer-form" data-fx-scorer="${esc(f.id)}"><input class="plain-field" name="player_name" required maxlength="50" placeholder="اسم مسجل الهدف"><select class="plain-field" name="team_side"><option value="a">${esc(f.a)}</option><option value="b">${esc(f.b)}</option></select><input class="plain-field" name="minute" type="number" min="0" max="130" placeholder="الدقيقة"><button class="chip" type="submit">إضافة هدف</button></form>`:''}</div>${admin?`<button class="danger fx-del" data-fx-del="${esc(f.id)}" aria-label="حذف المباراة">حذف</button>`:''}</article>`;
   }
   async function renderFixtures(){
     const evHost=$('#events'),listHost=$('#matchList'),adminHost=$('#fixtureAdmin');
@@ -393,7 +441,12 @@
     if(listHost){listHost.innerHTML=fixtures.length?fixtures.map(f=>fixtureCard(f,admin)).join(''):empty;
       listHost.onclick=async e=>{const del=e.target.closest('[data-fx-del]');if(!del||!isAdmin())return;if(!await uiConfirm('حذف هذه المباراة؟'))return;const id=del.dataset.fxDel;
         if(sb){const {error}=await sb.from('fixtures').delete().eq('id',id);if(error){toast('تعذر الحذف: '+error.message);return;}}
-        localFixtures=localFixtures.filter(x=>x.id!==id);putLocal(fixtureKey,localFixtures);renderFixtures();};}
+        localFixtures=localFixtures.filter(x=>x.id!==id);putLocal(fixtureKey,localFixtures);renderFixtures();};
+      listHost.onchange=async e=>{const sel=e.target.closest('[data-fx-status]');if(!sel||!isAdmin())return;const id=sel.dataset.fxStatus,status=sel.value;if(!['upcoming','live','finished'].includes(status))return;
+        if(sb){const {error}=await sb.from('fixtures').update({status}).eq('id',id);if(error){toast('تعذر تحديث الحالة: '+error.message);renderFixtures();return;}}
+        const row=localFixtures.find(x=>x.id===id);if(row)row.status=status;putLocal(fixtureKey,localFixtures);const f=fixtures.find(x=>x.id===id);if(f)f.status=status;renderFixtures();};
+      listHost.onsubmit=async e=>{const form=e.target.closest('[data-fx-scorer]');if(!form||!isAdmin())return;e.preventDefault();const fd=new FormData(form),name=String(fd.get('player_name')).trim(),side=String(fd.get('team_side')),minute=fd.get('minute')===''?null:Number(fd.get('minute'));if(!name){toast('اكتب اسم اللاعب.');return;}const row={id:uid(),fixture_id:form.dataset.fxScorer,player_name:name,team_side:side,minute};if(sb){const {error}=await sb.from('fixture_scorers').insert(row);if(error){toast('تعذر حفظ الهدف: '+error.message);return;}}else{const f=localFixtures.find(x=>x.id===row.fixture_id);if(f){f.scorers=f.scorers||[];f.scorers.push(row);putLocal(fixtureKey,localFixtures);}}toast('تم تسجيل الهدف.');renderFixtures();};
+    }
     if(adminHost){
       if(!admin){adminHost.innerHTML='';return;}
       if(!$('#fixtureForm')){
@@ -401,9 +454,9 @@
         $('#fixtureForm').onsubmit=async e=>{e.preventDefault();if(!isAdmin())return;const fd=new FormData(e.target),a=String(fd.get('a')).trim(),b=String(fd.get('b')).trim(),when=new Date(fd.get('at'));
           if(!a||!b||isNaN(+when)){msg('#fixtureMsg','أكمل بيانات المباراة.');return;}
           if(a===b){msg('#fixtureMsg','اختر فريقين مختلفين.');return;}
-          const row={id:uid(),sport:String(fd.get('sport')),team_a:a,team_b:b,scheduled_at:when.toISOString(),venue:String(fd.get('venue')||'').trim()};
+          const row={id:uid(),sport:String(fd.get('sport')),team_a:a,team_b:b,scheduled_at:when.toISOString(),venue:String(fd.get('venue')||'').trim(),status:'upcoming'};
           if(sb){const {error}=await sb.from('fixtures').insert({...row,created_by:currentUser?.id});if(error){msg('#fixtureMsg','تعذر الحفظ: '+error.message);return;}}
-          else{localFixtures.push({id:row.id,sport:row.sport,a,b,at:row.scheduled_at,venue:row.venue});putLocal(fixtureKey,localFixtures);}
+          else{localFixtures.push({id:row.id,sport:row.sport,a,b,at:row.scheduled_at,venue:row.venue,status:'upcoming',scorers:[]});putLocal(fixtureKey,localFixtures);}
           e.target.reset();msg('#fixtureMsg','تمت إضافة المباراة.',true);renderFixtures();};
       }
     }
@@ -417,5 +470,5 @@
     const oldGo=window.go;if(typeof oldGo==='function'){/* existing navigation remains in charge */}
   });
   // expose a safe refresh hook for the existing navigation and admin toggle
-  window.SawaedBackend={renderFixtures,renderTournaments,renderRank,refresh:()=>{window.__sawaedAdminDemo=false;injectAdminSeats();renderTournaments();renderTeams();renderManagerTools();renderFixtures();renderRank();},isConfigured:()=>!!sb,isManager:isAdmin};
+  window.SawaedBackend={renderFixtures,renderTournaments,renderRank,getClient:()=>sb,getUser:()=>currentUser,refresh:()=>{window.__sawaedAdminDemo=false;injectAdminSeats();renderTournaments();renderTeams();renderManagerTools();renderFixtures();renderRank();},isConfigured:()=>!!sb,isManager:isAdmin};
 })();
