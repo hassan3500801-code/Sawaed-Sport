@@ -254,3 +254,32 @@ textarea.plain-field{padding:10px 12px}
 .dlg{background:var(--surface);color:var(--ink);border-radius:var(--r);padding:18px;width:min(92vw,360px);display:grid;gap:12px;box-shadow:0 12px 40px #0006}
 .dlg p{font-weight:700;line-height:1.7}
 .toast{position:fixed;inset-inline:16px;bottom:96px;z-index:130;background:var(--navy);color:#fff;padding:12px 14px;border-radius:14px;text-align:center;font-weight:700;box-shadow:0 8px 24px #0004;animation:viewIn .25s ease both}
+
+
+/* ===== حالة المباراة والمسجلون ===== */
+.st-pill{display:inline-block;font-size:11px;font-weight:700;border-radius:10px;padding:2px 9px;margin-top:6px;background:#8882;color:var(--mute)}
+.st-pill.live{background:#e5484d;color:#fff;animation:livePulse 1.6s ease-in-out infinite}
+.st-pill.finished{background:#1a8f4c22;color:#1a8f4c}
+@keyframes livePulse{50%{opacity:.6}}
+.status-pill.verified{background:#1a8f4c22;color:#1a8f4c}
+.count.live{color:#ff6b6b}
+#sheetBody{white-space:pre-line;line-height:1.9}
+.fx-ctl{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.st-btn{min-height:36px;padding:0 12px;border-radius:18px;border:1px solid #88888870;background:transparent;color:var(--ink);font-size:12px;font-weight:700}
+.st-btn.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.st-btn.on[data-st="live"]{background:#e5484d;border-color:#e5484d}
+.st-btn.on[data-st="finished"]{background:#1a8f4c;border-color:#1a8f4c}
+.ev.fx{flex-direction:column;align-items:stretch;gap:8px}
+.fx-row{display:flex;gap:12px;align-items:center}
+.fx-score{display:inline-block;margin-inline-start:6px;padding:0 8px;border-radius:8px;background:var(--navy);color:#fff;font-size:14px}
+.mstat{display:flex;align-items:center;gap:8px;justify-content:center;margin:2px 0 6px}
+.match-details{border-top:1px solid #8882;margin-top:8px;padding-top:6px;display:grid;gap:6px}
+.ev-list{list-style:none;padding:0;display:grid;gap:6px;margin:4px 0}
+.ev-list li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}
+.ev-type{font-size:11px;font-weight:700;border-radius:8px;padding:2px 8px;background:var(--hl);color:var(--head)}
+.ev-type.assist{background:#1d6fd422;color:#1d6fd4}
+.ev-list small{color:var(--mute)}
+.ev-act{margin-inline-start:auto;display:flex;gap:10px}
+.ev-act .link{min-height:28px;text-decoration:underline;color:var(--head);font-size:12px}
+.ev-act .link.bad{color:#e5484d}
+.pl-ren{margin-inline-start:8px;font-size:11px;text-decoration:underline;color:var(--mute)}

@@ -6,7 +6,7 @@ const SPORTS = [
   {id:'billiard', name:'البلياردو', icon:'eight'},
   {id:'ps', name:'البلايستيشن', icon:'pad'}
 ];
-let NEXT = null; // أقرب مباراة قادمة يضيفها المدير
+let NEXT = null; // أقرب مباراة قادمة يضيفها المالك
 
 // ===== الأيقونات (SVG مضمّنة) =====
 const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
@@ -40,7 +40,7 @@ function renderSports(){
     `<button class="sport" role="tab" data-id="${s.id}" aria-selected="${s.id===state.sport}">${svg(ICON[s.icon],26)}${s.name}</button>`).join('');
   $$('.sport').forEach(b => b.onclick = () => openSport(b.dataset.id));
 }
-function renderRank(){ window.SawaedBackend?.renderRank?.(); } // الترتيب يديره المدير/المشرفون
+function renderRank(){ window.SawaedBackend?.renderRank?.(); } // الترتيب يديره المالك/المشرفون
 
 // ===== الأحداث والقوائم =====
 function renderLists(){
@@ -68,8 +68,9 @@ function initSlider(){
 // ===== العد التنازلي =====
 function tick(){
   if(!NEXT) return;
+  if(NEXT.status === 'live'){ $('#count').textContent = 'جارية الآن'; return; }
   let d = new Date(NEXT.at) - Date.now();
-  if(d <= 0){ $('#count').textContent = 'بدأت المباراة'; if(!NEXT.started){ NEXT.started = true; setTimeout(() => window.SawaedBackend?.renderFixtures?.(), 60000); } return; }
+  if(d <= 0){ $('#count').textContent = 'حان موعد المباراة'; if(!NEXT.started){ NEXT.started = true; setTimeout(() => window.SawaedBackend?.renderFixtures?.(), 60000); } return; }
   const p = n => String(n).padStart(2,'0');
   const days = Math.floor(d/864e5), h = Math.floor(d%864e5/36e5), m = Math.floor(d%36e5/6e4), s = Math.floor(d%6e4/1e3);
   $('#count').textContent = `${p(days)}:${p(h)}:${p(m)}:${p(s)}`;
@@ -82,6 +83,8 @@ function setNextMatch(f){
   $('#mEmpty').hidden = !!valid;
   if(!valid){ $('#count').textContent=''; return; }
   const d = new Date(f.at), p = n => String(n).padStart(2,'0'), hr = d.getHours();
+  $('#mtTitle').textContent = f.status === 'live' ? 'المباراة الجارية' : 'المباراة القادمة';
+  $('#count').classList.toggle('live', f.status === 'live');
   $('#mA').textContent = f.a; $('#mB').textContent = f.b;
   $('#mDay').textContent = DAYS_AR[d.getDay()];
   $('#mDate').textContent = `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())}`;
@@ -97,7 +100,7 @@ function renderBar(){
   $('#bar').innerHTML = $('#menuNav').innerHTML = TABS.map(t => `<button data-go="${t[0]}" ${t[0]===state.tab?'aria-current="page"':''}>${svg(ICON[t[2]])}${t[1]}</button>`).join('');
 }
 function go(tab, nav){
-  state.tab = nav || tab; showPanel(null);
+  state.tab = nav || tab; showPanel(null); if(!$('#sheet').hidden) sheet(false);
   $$('.view').forEach(v => v.classList.toggle('active', v.id===tab));
   renderBar(); bindGo(); window.scrollTo(0,0);
 }
@@ -108,7 +111,9 @@ function sheet(open){
   $('#sheet').hidden = $('#back').hidden = !open;
   if(open){
     const f = NEXT, d = f && new Date(f.at), p = n => String(n).padStart(2,'0');
-    $('#sheetBody').textContent = f ? `${f.sport}: ${f.a} ضد ${f.b}، ${DAYS_AR[d.getDay()]} ${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())}، الساعة ${$('#mTime').textContent}${f.venue ? '، ' + f.venue : ''}. يرجى الحضور قبل الموعد بنصف ساعة.` : 'لا توجد مباراة قادمة.';
+    const evs = (f && f.events) || [], fmt = e => e.name + (e.minute != null ? ` (د${e.minute})` : ''), goals = evs.filter(e => e.type==='goal').map(fmt), assists = evs.filter(e => e.type==='assist').map(fmt);
+    const ST = {upcoming:'لم تبدأ بعد', live:'جارية الآن', finished:'انتهت'};
+    $('#sheetBody').textContent = f ? [`${f.sport}: ${f.a} ضد ${f.b}، ${DAYS_AR[d.getDay()]} ${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())}، الساعة ${$('#mTime').textContent}${f.venue ? '، ' + f.venue : ''}.`, `الحالة: ${ST[f.status] || ST.upcoming}`, f.sa != null && f.sb != null ? `النتيجة: ${f.a} ${f.sa} : ${f.sb} ${f.b}` : '', goals.length ? `الأهداف: ${goals.join('، ')}` : '', assists.length ? `صنّاع الأهداف: ${assists.join('، ')}` : '', f.status === 'live' ? '' : 'يرجى الحضور قبل الموعد بنصف ساعة.'].filter(Boolean).join('\n') : 'لا توجد مباراة قادمة.';
     $('#closeSheet').focus();
   }
 }
