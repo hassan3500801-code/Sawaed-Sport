@@ -1,0 +1,28 @@
+{
+  "id": "/Sawaed-Sport/",
+  "name": "سواعد - Sawaed",
+  "short_name": "سواعد",
+  "description": "تطبيق سواعد للرياضة والبطولات والفرق والمباريات والتواصل.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/Sawaed-Sport/",
+  "scope": "/Sawaed-Sport/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f4f0",
+  "theme_color": "#142f55",
+  "icons": [
+    {
+      "src": "icons/android/launchericon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/android/launchericon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
