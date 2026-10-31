@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
 <div class="splash" id="splash" role="presentation">
@@ -33,7 +32,7 @@
       <div class="slider" id="slider">
         <div class="slides" id="slides">
           <article class="slide"><h2>سواعد..</h2><p>أكثر من مجرد دفعة</p></article>
-          <article class="slide"><h2>البطولات</h2><p>سيتم تغطية نتائج دورة 21</p></article>
+          <article class="slide"><h2>بطولات الأسبوع</h2><p>سجّل فريقك قبل إغلاق الباب</p></article>
           <article class="slide"><h2>ترتيب الفرق</h2><p>الترتيب الإجمالي لكل الفرق</p></article>
         </div>
         <div class="dots" id="dots"></div>
@@ -76,7 +75,13 @@
     <section id="tournaments" class="view"><h2 class="title">البطولات</h2><p class="note">أنشئ البطولة أولًا، ثم أضف إليها الفرق، ثم ابدأها لتظهر المباريات والترتيب التلقائي.</p><div id="tournamentApp"></div></section>
     <section id="tview" class="view"></section>
     <section id="account" class="view"><h2 class="title">حسابي</h2><div id="authApp"><p class="note">سجّل الدخول أو أنشئ حساب طالب برقم جلوسك المكوّن من 6 أرقام.</p><div class="auth-switch"><button class="chip" data-auth-mode="login" aria-selected="true">تسجيل الدخول</button><button class="chip" data-auth-mode="signup" aria-selected="false">حساب جديد</button></div><form id="authForm"><label class="auth-label" hidden>الاسم الكامل<input class="field auth-field" id="authName" autocomplete="name" maxlength="100" placeholder="الاسم الكامل"></label><label class="auth-label" hidden>رقم الجلوس (6 أرقام)<input class="field auth-field" id="authSeat" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="123456"></label><label class="auth-label">البريد الإلكتروني<input class="field auth-field" id="authEmail" type="email" autocomplete="email" required placeholder="student@gmail.com"></label><label class="auth-label">كلمة المرور<input class="field auth-field" id="authPassword" type="password" minlength="8" autocomplete="current-password" required placeholder="8 أحرف على الأقل"></label><p class="err" id="authError" role="alert"></p><button class="cta" type="submit" id="authSubmit">تسجيل الدخول</button></form><p class="note">التسجيل يتطلب رقم جلوس يضيفه المالك إلى القائمة المعتمدة، والتحقق من البريد الإلكتروني. لن تُفعّل الحسابات قبل تأكيد أهلية الطالب.</p></div></section>
-    <section id="settings" class="view"><h2 class="title">الإعدادات</h2><label class="row"><span>تنبيهات المباريات</span><input type="checkbox" id="notifToggle" checked></label><label class="row" style="margin-top:10px"><span>الوضع الداكن</span><input type="checkbox" id="darkToggle"></label></section>
+    <section id="settings" class="view"><h2 class="title">الإعدادات</h2><label class="row"><span>تنبيهات المباريات</span><input type="checkbox" id="notifToggle" checked></label><label class="row" style="margin-top:10px"><span>الوضع الداكن</span><input type="checkbox" id="darkToggle"></label>
+      <a class="row app-download-row" id="apkDownloadOption" href="#" role="button" style="margin-top:10px" hidden>
+        <span class="app-download-label"><span class="android-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.2 8.1 5.7 5.5m12.6 2.6 1.5-2.6M4.5 10.2h15v8.1a1.2 1.2 0 0 1-1.2 1.2H5.7a1.2 1.2 0 0 1-1.2-1.2zM7.5 4.8 6.3 3m10.2 1.8L17.7 3M8 13v3m8-3v3M2.8 11v5m18.4-5v5M9 19.5v1.7m6-1.7v1.7"/></svg></span>تحميل تطبيق سواعد للأندرويد</span>
+        <span class="download-arrow" aria-hidden="true">↓</span>
+      </a>
+      <p class="download-status" id="apkDownloadStatus" role="status" aria-live="polite" hidden></p>
+    </section>
     <section id="sportview" class="view"></section>
   </main>
 

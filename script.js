@@ -1,3 +1,45 @@
+// ===== تحميل تطبيق سواعد للأندرويد =====
+// حدّث هذا المسار فقط عند تغيير مكان ملف APK على الاستضافة.
+// الملف المرفق مع المشروع موجود في: downloads/sawaed.apk
+const SAWAED_APK_URL = 'downloads/sawaed.apk';
+
+function isInstalledAppMode(){
+  const displayMode = window.matchMedia && (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches
+  );
+  const legacyStandalone = window.navigator.standalone === true;
+  const ua = window.navigator.userAgent || '';
+  // Android System WebView يضيف عادةً الرمز wv أو Version/4.0 إلى User-Agent.
+  const androidWebView = /Android/i.test(ua) && ( /;\s*wv\)/i.test(ua) || /Version\/4\.0.*Chrome\//i.test(ua) );
+  // جسر JavaScript اختياري إذا كان تطبيق WebView يعرّف واجهة أصلية.
+  const nativeBridge = !!(window.Android || window.SawaedAndroid || window.androidBridge);
+  // Trusted Web Activity يمرّر عادةً android-app:// في document.referrer.
+  const twaLaunch = /^android-app:\/\//i.test(document.referrer || '');
+  return !!(displayMode || legacyStandalone || androidWebView || nativeBridge || twaLaunch);
+}
+
+function initApkDownload(){
+  const option = document.getElementById('apkDownloadOption');
+  const status = document.getElementById('apkDownloadStatus');
+  if(!option || !status) return;
+
+  // لا تعرض رابط التحميل داخل التطبيق المثبّت بأي من أوضاع التشغيل المدعومة.
+  if(isInstalledAppMode()){
+    option.hidden = true;
+    status.hidden = true;
+    return;
+  }
+
+  option.hidden = false;
+  option.href = SAWAED_APK_URL;
+  option.addEventListener('click', function(){
+    status.textContent = 'جاري تحميل تطبيق سواعد...';
+    status.hidden = false;
+  });
+}
+
 // ===== البيانات التجريبية =====
 const SPORTS = [
   {id:'football', name:'كرة القدم', icon:'ball'},
@@ -330,7 +372,7 @@ function applyTheme(dark){ document.documentElement.dataset.theme = dark ? 'dark
 
 // ===== التشغيل =====
 document.addEventListener('DOMContentLoaded', () => {
-  paintIcons(); renderSports(); renderRank(); renderLists(); initSlider(); renderBar(); bindGo();
+  initApkDownload(); paintIcons(); renderSports(); renderRank(); renderLists(); initSlider(); renderBar(); bindGo();
   tick(); setInterval(tick, 1000);
   $('#details').onclick = () => sheet(true);
   $('#closeSheet').onclick = $('#back').onclick = () => sheet(false);
