@@ -12,9 +12,6 @@
 <body>
 <div class="splash" id="splash" role="presentation">
   <img src="logo.png" alt="شعار سواعد" class="splash-logo" width="240" height="240">
-  <h1 class="splash-title">سواعد</h1>
-  <p class="splash-tag">معاً نصنع الأفضل .. داخل وخارج الملعب</p>
-  <span class="splash-bar"><i></i></span>
 </div>
 <div class="app">
   <header class="top">
@@ -74,14 +71,8 @@
     <section id="matches" class="view"><h2 class="title">المباريات</h2><div id="fixtureAdmin"></div><div class="list" id="matchList"></div></section>
     <section id="tournaments" class="view"><h2 class="title">البطولات</h2><p class="note">أنشئ البطولة أولًا، ثم أضف إليها الفرق، ثم ابدأها لتظهر المباريات والترتيب التلقائي.</p><div id="tournamentApp"></div></section>
     <section id="tview" class="view"></section>
-    <section id="account" class="view"><h2 class="title">حسابي</h2><div id="authApp"><p class="note">سجّل الدخول أو أنشئ حساب طالب برقم جلوسك المكوّن من 6 أرقام.</p><div class="auth-switch"><button class="chip" data-auth-mode="login" aria-selected="true">تسجيل الدخول</button><button class="chip" data-auth-mode="signup" aria-selected="false">حساب جديد</button></div><form id="authForm"><label class="auth-label" hidden>الاسم الكامل<input class="field auth-field" id="authName" autocomplete="name" maxlength="100" placeholder="الاسم الكامل"></label><label class="auth-label" hidden>رقم الجلوس (6 أرقام)<input class="field auth-field" id="authSeat" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="123456"></label><label class="auth-label">البريد الإلكتروني<input class="field auth-field" id="authEmail" type="email" autocomplete="email" required placeholder="student@gmail.com"></label><label class="auth-label">كلمة المرور<input class="field auth-field" id="authPassword" type="password" minlength="8" autocomplete="current-password" required placeholder="8 أحرف على الأقل"></label><p class="err" id="authError" role="alert"></p><button class="cta" type="submit" id="authSubmit">تسجيل الدخول</button></form><p class="note">التسجيل يتطلب رقم جلوس يضيفه المالك إلى القائمة المعتمدة، والتحقق من البريد الإلكتروني. لن تُفعّل الحسابات قبل تأكيد أهلية الطالب.</p></div></section>
-    <section id="settings" class="view"><h2 class="title">الإعدادات</h2><label class="row"><span>تنبيهات المباريات</span><input type="checkbox" id="notifToggle" checked></label><label class="row" style="margin-top:10px"><span>الوضع الداكن</span><input type="checkbox" id="darkToggle"></label>
-      <a class="row app-download-row" id="apkDownloadOption" href="#" role="button" style="margin-top:10px" hidden>
-        <span class="app-download-label"><span class="android-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.2 8.1 5.7 5.5m12.6 2.6 1.5-2.6M4.5 10.2h15v8.1a1.2 1.2 0 0 1-1.2 1.2H5.7a1.2 1.2 0 0 1-1.2-1.2zM7.5 4.8 6.3 3m10.2 1.8L17.7 3M8 13v3m8-3v3M2.8 11v5m18.4-5v5M9 19.5v1.7m6-1.7v1.7"/></svg></span>تحميل تطبيق سواعد للأندرويد</span>
-        <span class="download-arrow" aria-hidden="true">↓</span>
-      </a>
-      <p class="download-status" id="apkDownloadStatus" role="status" aria-live="polite" hidden></p>
-    </section>
+    <section id="account" class="view"><h2 class="title">حسابي</h2><div id="authApp"><p class="note">سجّل الدخول أو أنشئ حسابًا جديدًا برقم جلوسك المكوّن من 6 أرقام.</p><div class="auth-switch"><button class="chip" data-auth-mode="login" aria-selected="true">تسجيل الدخول</button><button class="chip" data-auth-mode="signup" aria-selected="false">حساب جديد</button></div><form id="authForm"><label class="auth-label" hidden>الاسم الكامل<input class="field auth-field" id="authName" autocomplete="name" maxlength="100" placeholder="الاسم الكامل"></label><label class="auth-label" hidden>رقم الجلوس (6 أرقام)<input class="field auth-field" id="authSeat" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="123456"></label><label class="auth-label">البريد الإلكتروني<input class="field auth-field" id="authEmail" type="email" autocomplete="email" required placeholder="student@gmail.com"></label><label class="auth-label">كلمة المرور<input class="field auth-field" id="authPassword" type="password" minlength="8" autocomplete="current-password" required placeholder="8 أحرف على الأقل"></label><p class="err" id="authError" role="alert"></p><button class="cta" type="submit" id="authSubmit">تسجيل الدخول</button></form><p class="note">التسجيل يتطلب رقم جلوس يضيفه المالك إلى القائمة المعتمدة. يُفعَّل الحساب تلقائيًا فور إنشائه دون انتظار موافقة.</p></div></section>
+    <section id="settings" class="view"><h2 class="title">الإعدادات</h2><label class="row"><span>تنبيهات المباريات</span><input type="checkbox" id="notifToggle" checked></label><label class="row" style="margin-top:10px"><span>الوضع الداكن</span><input type="checkbox" id="darkToggle"></label></section>
     <section id="sportview" class="view"></section>
   </main>
 
@@ -115,8 +106,8 @@
 </div>
 <script>
 (function(){var s=document.getElementById('splash');if(!s)return;var done=false;
-function hide(){if(done)return;done=true;s.classList.add('out');setTimeout(function(){s.remove()},500);}
-setTimeout(hide,2200);s.addEventListener('click',hide);})();
+function hide(){if(done)return;done=true;s.classList.add('out');setTimeout(function(){s.remove()},400);}
+setTimeout(hide,1100);s.addEventListener('click',hide);})();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="script.js"></script>

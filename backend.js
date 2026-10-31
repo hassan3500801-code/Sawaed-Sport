@@ -33,7 +33,7 @@
     injectAdminSeats();renderAuthState();renderTournaments();renderTeams();renderManagerTools();renderFixtures();renderRank();
   }
   // شارة «حساب موثق» تظهر للمالك والمشرفين فقط
-  function accountPill(){const staff=profile&&['admin','team_leader'].includes(profile.role)&&profile.approved;if(staff)return `<p class="status-pill verified">✓ حساب موثق · ${profile.role==='admin'?'المالك':'مشرف'}</p>`;return profile&&!profile.approved?'<p class="status-pill">بانتظار موافقة المالك</p>':'';}
+  function accountPill(){const staff=profile&&['admin','team_leader'].includes(profile.role)&&profile.approved;if(staff)return `<p class="status-pill verified">✓ حساب موثق · ${profile.role==='admin'?'المالك':'مشرف'}</p>`;return '';}
   function renderAuthState(){
     const host=$('#authApp'); if(!host)return;
     if(currentUser){host.innerHTML=`<div class="panel-card"><h3>مرحبًا ${esc(profile?.full_name||currentUser.email)}</h3><p class="muted">البريد: ${esc(currentUser.email)}</p><p class="muted">رقم الجلوس: ${esc(profile?.seat_number||'—')}</p>${accountPill()}<button class="cta" id="signOutBtn">تسجيل الخروج</button></div>`;$('#signOutBtn').onclick=async()=>{await sb.auth.signOut();currentUser=null;profile=null;location.reload();};return;}
@@ -47,9 +47,22 @@
       if(!/^\d{6}$/.test(seat)){msg('#authError','رقم الجلوس يجب أن يتكون من 6 أرقام بالضبط.');return;}
       const {data,error}=await sb.rpc('check_seat_available',{p_seat_number:seat});
       if(error||!data){msg('#authError','رقم الجلوس غير معتمد أو مستخدم مسبقًا. راجع المالك.');return;}
-      const {data:signup,error:signErr}=await sb.auth.signUp({email,password,options:{data:{full_name:name,seat_number:seat}}});
-      if(signErr){msg('#authError',signErr.message);return;}
-      msg('#authError','تم إرسال رسالة التحقق إن كان إعداد البريد مفعّلًا. أكمل التحقق ثم انتظر اعتماد المالك.',true);
+      if(name.length<2){msg('#authError','يرجى إدخال الاسم الكامل.');return;}
+      const btn=$('#authSubmit');btn.disabled=true;
+      try{
+        const {data:signup,error:signErr}=await sb.auth.signUp({email,password,options:{data:{full_name:name,seat_number:seat}}});
+        if(signErr){
+          const m=signErr.message||'';
+          msg('#authError',/already registered|already been registered/i.test(m)?'هذا البريد مسجّل مسبقًا. سجّل الدخول بدل إنشاء حساب جديد.':/database error|seat|جلوس/i.test(m)?'رقم الجلوس غير معتمد أو مستخدم مسبقًا. راجع المالك.':/password/i.test(m)?'كلمة المرور ضعيفة. استخدم 8 أحرف على الأقل.':m);
+          return;
+        }
+        if(signup?.user && Array.isArray(signup.user.identities) && !signup.user.identities.length){msg('#authError','هذا البريد مسجّل مسبقًا. سجّل الدخول بدل إنشاء حساب جديد.');return;}
+        if(!signup?.session){
+          const {error:inErr}=await sb.auth.signInWithPassword({email,password});
+          if(inErr){msg('#authError','تم إنشاء الحساب لكن تعذر الدخول تلقائيًا: يبدو أن تأكيد البريد ما زال مفعّلًا في Supabase (Authentication ← Providers ← Email ← عطّل Confirm email).');return;}
+        }
+        await refreshUser();toast('تم إنشاء حسابك وتفعيله ✓');
+      }finally{btn.disabled=false;}
     } else {const {error}=await sb.auth.signInWithPassword({email,password});if(error){msg('#authError','تعذر تسجيل الدخول. تحقق من البريد وكلمة المرور.');return;}await refreshUser();}
   }
   const uid = () => 't_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
@@ -368,7 +381,7 @@
     const settings=$('#settings');if(!settings)return;if($('#managerTools')){$('#managerTools').hidden=!isRootAdmin();return;}const card=document.createElement('div');card.id='managerTools';card.className='panel-card';card.innerHTML='<h3>إدارة صلاحيات البطولات والفرق</h3><p class="muted">تظهر هذه الأدوات للمالك فقط. أدخل رقم جلوس طالب معتمد لمنحه أو سحب صلاحية مشرف.</p><input id="managerSeat" class="field" inputmode="numeric" maxlength="6" placeholder="رقم جلوس الطالب (6 أرقام)"><div class="action-row"><button id="grantManager" class="cta">منح صلاحية مشرف</button><button id="revokeManager" class="secondary">سحب الصلاحية</button></div><p id="managerMsg" class="muted"></p>';settings.appendChild(card);card.hidden=!isRootAdmin();
     $('#grantManager').onclick=()=>changeManager(true);$('#revokeManager').onclick=()=>changeManager(false);
   }
-  async function changeManager(grant){if(!isRootAdmin()||!sb){msg('#managerMsg','هذه العملية تتطلب حساب المالك الأساسي وربط قاعدة البيانات.');return;}const seat=$('#managerSeat').value.trim();if(!/^\d{6}$/.test(seat)){msg('#managerMsg','أدخل رقم جلوس صحيحًا من 6 أرقام.');return;}const {data,error}=await sb.from('profiles').select('id,full_name,role,approved').eq('seat_number',seat).maybeSingle();if(error||!data){msg('#managerMsg','لم يُعثر على حساب بهذا الرقم. يجب أن يكون الطالب قد أنشأ حسابه أولًا.');return;}if(!data.approved){msg('#managerMsg','لا يمكن منح الصلاحية قبل اعتماد الحساب.');return;}if(data.role==='admin'){msg('#managerMsg','هذا الحساب مالك أساسي بالفعل.');return;}const {error:updateError}=await sb.from('profiles').update({role:grant?'team_leader':'student'}).eq('id',data.id);if(updateError){msg('#managerMsg','تعذر تحديث الصلاحية: '+updateError.message);return;}msg('#managerMsg',grant?`تم منح ${data.full_name} صلاحية التحكم في الفرق والبطولات والمباريات.`:`تم سحب صلاحية المشرف من ${data.full_name}.`,true);}
+  async function changeManager(grant){if(!isRootAdmin()||!sb){msg('#managerMsg','هذه العملية تتطلب حساب المالك الأساسي وربط قاعدة البيانات.');return;}const seat=$('#managerSeat').value.trim();if(!/^\d{6}$/.test(seat)){msg('#managerMsg','أدخل رقم جلوس صحيحًا من 6 أرقام.');return;}const {data,error}=await sb.from('profiles').select('id,full_name,role,approved').eq('seat_number',seat).maybeSingle();if(error||!data){msg('#managerMsg','لم يُعثر على حساب بهذا الرقم. يجب أن يكون الطالب قد أنشأ حسابه أولًا.');return;}if(data.role==='admin'){msg('#managerMsg','هذا الحساب مالك أساسي بالفعل.');return;}const {error:updateError}=await sb.from('profiles').update({role:grant?'team_leader':'student'}).eq('id',data.id);if(updateError){msg('#managerMsg','تعذر تحديث الصلاحية: '+updateError.message);return;}msg('#managerMsg',grant?`تم منح ${data.full_name} صلاحية التحكم في الفرق والبطولات والمباريات.`:`تم سحب صلاحية المشرف من ${data.full_name}.`,true);}
 
   // إدارة قائمة أرقام الجلوس للمالك من إعدادات النظام، مع تخزين محلي مؤقت فقط قبل الربط.
   function injectAdminSeats(){const settings=$('#settings');if(!settings)return;if($('#seatAdminCard')){$('#seatAdminCard').hidden=!isRootAdmin();return;}const card=document.createElement('div');card.id='seatAdminCard';card.className='panel-card';card.hidden=!isRootAdmin();card.innerHTML='<h3>قائمة أرقام الجلوس المعتمدة</h3><p class="muted">أدخل الأرقام، رقمًا في كل سطر. هذه القائمة المحلية للتجربة فقط؛ بعد ربط Supabase ستُحفظ القائمة في قاعدة البيانات الآمنة.</p><textarea id="seatNumbers" class="plain-field" rows="7" placeholder="123456\n234567"></textarea><button class="cta" id="saveSeats">حفظ القائمة</button><p id="seatMsg" class="muted"></p>';settings.appendChild(card);$('#seatNumbers').value=demoSeats.join('\n');$('#saveSeats').onclick=()=>{if(!isRootAdmin()){msg('#seatMsg','هذه الوظيفة متاحة للمالك بعد إعداد تسجيل الدخول الآمن.');return;}const arr=$('#seatNumbers').value.split(/\s+/).filter(Boolean);const bad=arr.filter(x=>!/^[0-9]{6}$/.test(x));if(bad.length){msg('#seatMsg','الأرقام يجب أن تتكون من 6 أرقام بالضبط.');return;}demoSeats=[...new Set(arr)];putLocal(seatKey,demoSeats);if(sb&&isAdmin()){sb.rpc('admin_import_seat_numbers',{p_numbers:demoSeats}).then(({error})=>msg('#seatMsg',error?'تعذر حفظ القائمة في قاعدة البيانات: '+error.message:`تم استيراد ${demoSeats.length} رقم جلوس إلى قاعدة البيانات.`,!error));}else msg('#seatMsg',`تم حفظ ${demoSeats.length} رقمًا في هذا المتصفح فقط. اربط Supabase لحفظها بأمان ومشاركتها.`,true);};}

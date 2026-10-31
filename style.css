@@ -148,16 +148,10 @@ html[data-theme="dark"] .sheet-back{background:#000b}
 
 
 /* ===== شاشة الترحيب ===== */
-.splash{position:fixed;inset:0;z-index:100;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:24px;text-align:center;transition:opacity .45s ease,visibility .45s;cursor:pointer}
+.splash{position:fixed;inset:0;z-index:100;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:24px;text-align:center;transition:opacity .35s ease,visibility .35s;cursor:pointer}
 .splash.out{opacity:0;visibility:hidden;pointer-events:none}
-.splash-logo{width:min(62vw,260px);height:auto;animation:splashLogo .7s cubic-bezier(.2,.8,.2,1) both}
-.splash-title{font-size:52px;font-weight:900;color:#0F2A52;line-height:1.1;animation:splashUp .6s ease .25s both}
-.splash-tag{font-size:13px;color:#5B6678;animation:splashUp .6s ease .4s both}
-.splash-bar{display:block;width:120px;height:4px;border-radius:2px;background:#0F2A5220;overflow:hidden;margin-top:18px;animation:splashUp .6s ease .5s both}
-.splash-bar i{display:block;height:100%;width:100%;background:#F2B01E;transform-origin:right;animation:splashLoad 2s ease .2s both}
+.splash-logo{width:min(62vw,260px);height:auto;animation:splashLogo .45s cubic-bezier(.2,.8,.2,1) both}
 @keyframes splashLogo{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
-@keyframes splashUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-@keyframes splashLoad{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 html[data-theme="dark"] .logo{mix-blend-mode:normal;background:#fff;border-radius:16px;padding:2px}
 
 /* ===== انتقال خفيف بين الصفحات ===== */
@@ -283,41 +277,3 @@ textarea.plain-field{padding:10px 12px}
 .ev-act .link{min-height:28px;text-decoration:underline;color:var(--head);font-size:12px}
 .ev-act .link.bad{color:#e5484d}
 .pl-ren{margin-inline-start:8px;font-size:11px;text-decoration:underline;color:var(--mute)}
-
-
-/* ===== خيار تحميل تطبيق سواعد ===== */
-.app-download-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  width:100%;
-  min-height:54px;
-  padding:12px 14px;
-  border:1px solid var(--line, #8883);
-  border-radius:14px;
-  color:var(--ink);
-  text-decoration:none;
-  background:var(--surface);
-  font:inherit;
-  font-weight:700;
-}
-.app-download-label{display:flex;align-items:center;gap:10px}
-.android-icon{
-  display:inline-grid;
-  place-items:center;
-  width:32px;height:32px;
-  border-radius:10px;
-  background:#3ddc84;
-  color:#123b26;
-  font-size:20px;
-  line-height:1;
-}
-.android-icon svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.download-arrow{font-size:23px;color:var(--head, var(--ink));font-weight:900}
-.download-status{
-  margin:8px 4px 0;
-  color:var(--head, var(--ink));
-  font-size:13px;
-  font-weight:700;
-}
