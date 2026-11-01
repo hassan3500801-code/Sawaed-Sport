@@ -347,12 +347,9 @@ document.addEventListener('DOMContentLoaded', () => {
   dt.onchange = () => { applyTheme(dt.checked); try{ localStorage.setItem('theme', dt.checked ? 'dark' : 'light'); }catch(e){} };
   state.admin = false;
   initSportView();
-  $('#sendBtn').hidden = true;
   $('#menuBtn').onclick = () => showPanel('menuDrawer');
   $('#pBack').onclick = () => showPanel(null);
   document.addEventListener('click', e => { if(e.target.closest('[data-close]')) showPanel(null); });
-  $('#sendBtn').onclick = () => { $('#nErr').textContent = ''; showPanel('sendSheet'); $('#nTitle').focus(); };
-  $('#nSend').onclick = sendNotif;
   $('#nlist').onclick = async e => { const d = e.target.closest('[data-del]'); if(!(d && state.admin)) return;
     const n = NOTIFS.find(x => x.id === +d.dataset.del);
     if(n && n.rid && window.SawaedRemote){ const r = await window.SawaedRemote.delNotif(n.rid); if(r === null){ renderNotifs(); badge(); return; } if(r !== 'LOCAL'){ if(typeof toast === 'function') toast(r); else alert(r); return; } }

@@ -28,8 +28,8 @@
     <section id="home" class="view active">
       <div class="slider" id="slider">
         <div class="slides" id="slides">
-          <article class="slide"><h2>سواعد..</h2><p>عزم لا يلين ومجد لا يغيب</p></article>
-          <article class="slide"><h2>بطولات الأسبوع</h2><p>سيتم تغطية نتائج مباريات دورة 21</p></article>
+          <article class="slide"><h2>سواعد..</h2><p>عزم لا يلين  ومجد لا يغيب</p></article>
+          <article class="slide"><h2>البطولات</h2><p>سيتم تغطية نتائج مباريات دورة 21</p></article>
           <article class="slide"><h2>ترتيب الفرق</h2><p>الترتيب الإجمالي لكل الفرق</p></article>
         </div>
         <div class="dots" id="dots"></div>
@@ -58,7 +58,6 @@
         <section class="card light" aria-labelledby="rk" id="rankCard">
           <h3 id="rk"><span data-icon="trophy"></span>ترتيب الفرق</h3>
           <ol class="rank" id="rank"></ol>
-          <div id="rankAdmin"></div>
         </section>
       </div>
 
@@ -66,10 +65,10 @@
       <div class="events" id="events"></div>
     </section>
 
-    <section id="sports" class="view"><h2 class="title">الفرق</h2><p class="note">معلومات الفرق والأندية ولاعبيها. التعديل والإضافة والحذف متاحة للمالك والمشرفين الذين يختارهم.</p><div id="teamsApp"><div class="list" id="sportList"></div></div></section>
+    <section id="sports" class="view"><h2 class="title">الفرق</h2><p class="note">معلومات الفرق والأندية ولاعبيها.</p><div id="teamsApp"><div class="list" id="sportList"></div></div></section>
     <section id="teamview" class="view"></section>
-    <section id="matches" class="view"><h2 class="title">المباريات</h2><div id="fixtureAdmin"></div><div class="list" id="matchList"></div></section>
-    <section id="tournaments" class="view"><h2 class="title">البطولات</h2><p class="note">أنشئ البطولة أولًا، ثم أضف إليها الفرق، ثم ابدأها لتظهر المباريات والترتيب التلقائي.</p><div id="tournamentApp"></div></section>
+    <section id="matches" class="view"><h2 class="title">المباريات</h2><p class="note">تشمل المباريات العامة ومباريات البطولات (الدوري والمجموعات والإقصاء) بمواعيدها ونتائجها.</p><div class="list" id="matchList"></div></section>
+    <section id="tournaments" class="view"><h2 class="title">البطولات</h2><p class="note">تابع البطولات ومجموعاتها ومبارياتها وترتيبها ونتائجها.</p><div id="tournamentApp"></div></section>
     <section id="tview" class="view"></section>
     <section id="account" class="view"><h2 class="title">حسابي</h2><div id="authApp"><p class="note">سجّل الدخول أو أنشئ حسابًا جديدًا برقم جلوسك المكوّن من 6 أرقام.</p><div class="auth-switch"><button class="chip" data-auth-mode="login" aria-selected="true">تسجيل الدخول</button><button class="chip" data-auth-mode="signup" aria-selected="false">حساب جديد</button></div><form id="authForm"><label class="auth-label" hidden>الاسم الكامل<input class="field auth-field" id="authName" autocomplete="name" maxlength="100" placeholder="الاسم الكامل"></label><label class="auth-label" hidden>رقم الجلوس (6 أرقام)<input class="field auth-field" id="authSeat" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="123456"></label><label class="auth-label">البريد الإلكتروني<input class="field auth-field" id="authEmail" type="email" autocomplete="email" required placeholder="student@gmail.com"></label><label class="auth-label">كلمة المرور<input class="field auth-field" id="authPassword" type="password" minlength="8" autocomplete="current-password" required placeholder="8 أحرف على الأقل"></label><p class="err" id="authError" role="alert"></p><button class="cta" type="submit" id="authSubmit">تسجيل الدخول</button></form><p class="note">التسجيل يتطلب رقم جلوس يضيفه المالك إلى القائمة المعتمدة. يُفعَّل الحساب تلقائيًا فور إنشائه دون انتظار موافقة.</p></div></section>
     <section id="settings" class="view"><h2 class="title">الإعدادات</h2><label class="row"><span>تنبيهات المباريات</span><input type="checkbox" id="notifToggle" checked></label><label class="row" style="margin-top:10px"><span>الوضع الداكن</span><input type="checkbox" id="darkToggle"></label></section>
@@ -82,20 +81,11 @@
   <aside class="drawer panel" id="menuDrawer" aria-label="القائمة" hidden>
     <div class="dh"><h3>القائمة</h3><button class="icon-btn" data-close aria-label="إغلاق">✕</button></div>
     <nav id="menuNav" aria-label="التنقل"></nav>
-    <button class="mi" id="sendBtn" hidden>إرسال إشعار</button>
   </aside>
   <div class="sheet panel" id="notifSheet" role="dialog" aria-modal="true" aria-labelledby="notifTitle" hidden>
     <h3 id="notifTitle">الإشعارات</h3>
     <div class="nlist" id="nlist"></div>
     <button class="cta" data-close>إغلاق</button>
-  </div>
-  <div class="sheet panel" id="sendSheet" role="dialog" aria-modal="true" aria-labelledby="sendTitle" hidden>
-    <h3 id="sendTitle">إرسال إشعار</h3>
-    <input class="field txt" id="nTitle" maxlength="60" placeholder="عنوان الإشعار" aria-label="عنوان الإشعار">
-    <textarea class="field txt" id="nText" rows="3" maxlength="240" placeholder="نص الإشعار" aria-label="نص الإشعار"></textarea>
-    <p class="err" id="nErr" role="alert"></p>
-    <button class="cta" id="nSend">إرسال</button>
-    <button class="link" data-close style="width:100%">إلغاء</button>
   </div>
   <div class="sheet-back" id="back" hidden></div>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>

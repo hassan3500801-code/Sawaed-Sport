@@ -25,8 +25,9 @@
     ann: '<path d="M4 13v-2a2 2 0 012-2h2l7-4v14l-7-4H6a2 2 0 01-2-2zM18 9a4 4 0 010 6"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
   };
+  I.rank = I.tournaments;
   const NAV = [
-    { id: 'dashboard', t: 'الرئيسية' }, { id: 'users', t: 'المستخدمون', owner: true }, { id: 'teams', t: 'الفرق' },
+    { id: 'dashboard', t: 'الرئيسية' }, { id: 'users', t: 'المستخدمون', owner: true }, { id: 'teams', t: 'الفرق' }, { id: 'rank', t: 'ترتيب الفرق' },
     { id: 'tournaments', t: 'البطولات' }, { id: 'matches', t: 'المباريات' }, { id: 'scorers', t: 'الهدافون وصناع الأهداف' },
     { id: 'ann', t: 'الإعلانات والإشعارات' }, { id: 'settings', t: 'إعدادات التطبيق', owner: true },
   ];
@@ -266,17 +267,36 @@
     ctx.ts = ts; ctx.tt = tTeams; ctx.tm = ms; ctx.catalog = catalog;
     const reg = t.status === 'registration', nameOf = id => (tTeams.find(x => x.id === id) || {}).name || 'يُحدَّد لاحقًا';
     const used = new Set(tTeams.map(x => norm(x.name))), avail = catalog.filter(c => !used.has(norm(c.name)));
+    const cf = cfgOf(t), plan = t.format === 'groups' ? reconcilePlan(t, tTeams) : null; ctx.cur = t; ctx.plan = plan;
+    const tnm = id => (tTeams.find(x => x.id === id) || {}).name || '؟';
+    let extra = '';
+    if (reg && plan && tTeams.length >= 2) {
+      const gopts = sel => plan.groups.map(g => `<option value="${g.name}"${g.name === sel ? ' selected' : ''}>المجموعة ${g.name}</option>`).join('');
+      extra += `<div class="card" style="margin-top:14px"><div class="row sp"><b>شكل المجموعات</b><button class="btn sec sm" data-act="gp-auto">توزيع تلقائي</button></div>
+        <div class="row" style="margin-top:10px"><label class="muted">عدد المجموعات</label><select class="search" style="max-width:100px" data-chg="gp-count" aria-label="عدد المجموعات">${Array.from({ length: maxGroups(tTeams.length) }, (_, i) => `<option value="${i + 1}"${plan.count === i + 1 ? ' selected' : ''}>${i + 1}</option>`).join('')}</select>
+        <label class="muted">المتأهلون من كل مجموعة</label><select class="search" style="max-width:100px" data-chg="gp-q" aria-label="المتأهلون من كل مجموعة">${[1, 2, 3, 4].map(n => `<option value="${n}"${(Number(cf.qualifiers) || 2) === n ? ' selected' : ''}>${n}</option>`).join('')}</select></div>
+        <div class="gp-grid">${plan.groups.map(g => `<div class="gp-box"><b>المجموعة ${g.name}</b> <span class="muted">(${g.teams.length})</span>${g.teams.map((id, i) => `<div class="gp-row"><span class="gp-n">${i + 1}</span><span class="gp-nm">${esc(tnm(id))}</span><select class="search gp-sel" data-chg="gp-move" data-id="${esc(id)}" aria-label="نقل ${esc(tnm(id))} إلى مجموعة">${gopts(g.name)}</select><button class="btn sec sm" data-act="gp-up" data-id="${esc(id)}"${i === 0 ? ' disabled' : ''} aria-label="رفع">▲</button><button class="btn sec sm" data-act="gp-dn" data-id="${esc(id)}"${i === g.teams.length - 1 ? ' disabled' : ''} aria-label="خفض">▼</button></div>`).join('') || '<p class="muted">فارغة</p>'}</div>`).join('')}</div>
+        <p class="muted" style="margin-top:8px">حدّد عدد المجموعات، وانقل كل فريق بين المجموعات وغيّر موقعه داخلها قبل بدء البطولة. تُقفل هذه الإعدادات عند البدء.</p></div>`;
+    }
+    if (reg) extra += `<div class="card" style="margin-top:14px"><button class="btn" data-act="t-start"${tTeams.length < 2 ? ' disabled' : ''}>بدء البطولة وتوليد المباريات</button><p class="muted" style="margin-top:8px">${tTeams.length < 2 ? 'أضف فريقين على الأقل لتتمكن من البدء.' : 'عند البدء تُولَّد المباريات حسب نظام البطولة، وتحدّد موعد أول مباراة والفاصل بين المباريات والملعب.'}</p></div>`;
+    else {
+      extra += `<div class="row" style="margin-top:14px"><button class="btn sm" data-act="t-resched">إعادة جدولة المباريات</button><button class="btn sec sm" data-act="t-reopen">إعادة فتح التسجيل</button></div>`;
+      if (t.format === 'league') extra += standingsHtml(tTeams, liteOf(ms), 'ترتيب الدوري');
+      if (t.format === 'groups') extra += cf.groups.map(g => standingsHtml(g.teams.map(id => tTeams.find(x => x.id === id)).filter(Boolean), liteOf(ms.filter(m => m.group_name === g.name)), 'المجموعة ' + g.name)).join('');
+    }
     return `<div class="head-row"><button class="btn sec sm" data-act="t-back">← رجوع</button><h2>${esc(t.name)}</h2><span class="badge ${T_ST_CLS[t.status] || ''}">${T_ST[t.status] || ''}</span></div>
     <div class="card"><p class="muted">${esc(t.sport)} · ${T_FMT[t.format] || ''} · ${fmtD(t.start_date)} ← ${fmtD(t.end_date)}</p>${t.description ? `<p style="margin-top:6px">${esc(t.description)}</p>` : ''}
       <div class="row" style="margin-top:12px"><button class="btn sec sm" data-act="t-edit" data-id="${esc(t.id)}">تعديل البطولة</button><button class="btn sec sm" data-act="t-toggle" data-id="${esc(t.id)}">${t.status === 'cancelled' ? 'تفعيل' : 'إيقاف'}</button><button class="btn bad sm" data-act="t-del" data-id="${esc(t.id)}">حذف</button></div></div>
     <div class="card" style="margin-top:14px"><div class="row sp"><b>الفرق المشاركة (${tTeams.length})</b>${reg ? '' : '<span class="muted">القفل بعد بدء البطولة</span>'}</div>
       <div class="chips" style="margin-top:10px">${tTeams.length ? tTeams.map(x => `<span class="pchip">${esc(x.name)}${reg ? `<button type="button" title="إزالة" data-act="tt-del" data-id="${esc(x.id)}">×</button>` : ''}</span>`).join('') : '<span class="muted">لم تُضف فرق.</span>'}</div>
       ${reg ? `<hr class="sep"><div class="row"><select id="ttCat" class="search" style="max-width:260px" aria-label="فريق من القائمة"><option value="">${avail.length ? 'اختر فريقًا من قائمة الفرق…' : 'لا فرق أخرى في القائمة'}</option>${avail.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select><button class="btn sm" data-act="tt-addcat">إضافة</button><button class="btn sec sm" data-act="tt-addnew">فريق باسم جديد</button></div>` : ''}</div>
+    ${extra}
     <div class="head-row" style="margin-top:18px"><h2 style="font-size:18px">مباريات البطولة (${ms.length})</h2>${t.format === 'league' && tTeams.length > 1 ? `<button class="btn sm" data-act="tm-add" data-id="${esc(t.id)}">+ مباراة</button>` : ''}</div>
-    ${t.format !== 'league' ? '<div class="note">في بطولات المجموعات والإقصاء تُولَّد المباريات والأدوار التالية من التطبيق. تعديل النتيجة من هنا يحفظها، لكن توليد الدور التالي تلقائيًا يتم من صفحة البطولة في التطبيق.</div>' : ''}
+    ${!reg && t.format !== 'league' ? '<div class="note">يُولَّد الدور التالي تلقائيًا (بنفس الفاصل الزمني) عند اكتمال نتائج الدور الحالي. لا يوجد تعادل في الأدوار الإقصائية.</div>' : ''}
+    <div class="note">تظهر مباريات البطولة في صفحة «المباريات» بالتطبيق متزامنة مع المباريات العامة متى كان لها موعد وفريقان. عدّل موعد أي مباراة بزر «تعديل» أو أعد جدولتها كلها بزر «إعادة جدولة المباريات».</div>
     ${ms.length ? `<div class="grid cards">${ms.map(m => tMatchCard(m, nameOf, t)).join('')}</div>` : '<div class="card empty">لا توجد مباريات بعد.</div>'}`;
   }
-  const tMatchCard = (m, nameOf, t) => `<div class="card"><div class="row sp"><span class="badge navy">${esc(m.round_name)}${m.group_name ? ' · ' + esc(m.group_name) : ''}</span><span class="badge ${ST_CLS[m.status] || ''}">${ST[m.status] || ''}</span></div>
+  const tMatchCard = (m, nameOf, t, showT) => `<div class="card"><div class="row sp"><span class="badge navy">${showT && t ? esc(t.name) + ' · ' : ''}${esc(m.round_name)}${m.group_name ? ' · ' + esc(m.group_name) : ''}</span><span class="badge ${ST_CLS[m.status] || ''}">${ST[m.status] || ''}</span></div>
     <div class="match-row"><b>${esc(nameOf(m.team_a_id))}</b><span class="score">${m.score_a ?? '–'} : ${m.score_b ?? '–'}</span><b>${esc(nameOf(m.team_b_id))}</b></div>
     <p class="muted" style="text-align:center">${fmtDT(m.scheduled_at)}${m.venue ? ' · ' + esc(m.venue) : ''}</p>
     <div class="row" style="margin-top:10px;justify-content:center"><button class="btn sec sm" data-act="tm-edit" data-id="${esc(m.id)}" data-t="${esc(t.id)}">تعديل</button><button class="btn sec sm" data-act="ev-go" data-key="m:${esc(m.id)}">الأهداف</button>${t.format === 'league' ? `<button class="btn bad sm" data-act="tm-del" data-id="${esc(m.id)}">حذف</button>` : ''}</div></div>`;
@@ -289,8 +309,16 @@
       ${['upcoming', 'live', 'finished'].filter(s => s !== f.status).map(s => `<button class="btn sec sm" data-act="fx-status" data-id="${esc(f.id)}" data-s="${s}">${ST[s]}</button>`).join('')}</div>
     <div class="row" style="margin-top:8px;justify-content:center"><button class="btn sec sm" data-act="fx-edit" data-id="${esc(f.id)}">تعديل</button><button class="btn sec sm" data-act="ev-go" data-key="f:${esc(f.id)}">الأهداف</button><button class="btn bad sm" data-act="fx-del" data-id="${esc(f.id)}">حذف</button></div></div>`;
   VIEWS.matches = async () => {
-    ctx.mtab = ctx.mtab || 'fixtures';
-    const tabs = `<div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="${ctx.mtab === 'fixtures'}" data-act="mtab" data-v="fixtures">المباريات العامة</button><button class="tab" role="tab" aria-selected="${ctx.mtab === 'tourn'}" data-act="mtab" data-v="tourn">مباريات البطولات</button></div>`;
+    ctx.mtab = ctx.mtab || 'all';
+    const tabs = `<div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="${ctx.mtab === 'all'}" data-act="mtab" data-v="all">كل المباريات (متزامنة)</button><button class="tab" role="tab" aria-selected="${ctx.mtab === 'fixtures'}" data-act="mtab" data-v="fixtures">المباريات العامة</button><button class="tab" role="tab" aria-selected="${ctx.mtab === 'tourn'}" data-act="mtab" data-v="tourn">مباريات البطولات</button></div>`;
+    if (ctx.mtab === 'all') {
+      const [fx, ts, tt, ms] = await Promise.all([API.fixtures.list(), API.tournaments.list(), API.tournaments.allTeams(), API.tournaments.matches.all()]);
+      Object.assign(ctx, { fixtures: fx, ts, ttAll: tt, tmAll: ms });
+      const nameOf = id => (tt.find(x => x.id === id) || {}).name || 'يُحدَّد لاحقًا', when = s => s ? +new Date(s) : Infinity;
+      const items = [...fx.map(f => ({ at: f.scheduled_at, h: fixtureCard(f) })),
+        ...ms.filter(m => m.team_a_id && m.team_b_id).map(m => { const t = ts.find(x => x.id === m.tournament_id); return t ? { at: m.scheduled_at, h: tMatchCard(m, nameOf, t, true) } : null; }).filter(Boolean)].sort((a, b) => when(a.at) - when(b.at));
+      return `${tabs}<div class="note">يجمع هذا الجدول المباريات العامة ومباريات البطولات (الدوري والمجموعات والإقصاء) بترتيب الموعد، وكلها تظهر في صفحة «المباريات» بالتطبيق. مباريات البطولات التي بلا موعد لا تظهر هناك حتى تحدّد موعدها.</div>${items.length ? `<div class="grid cards">${items.map(i => i.h).join('')}</div>` : '<div class="card empty">لا توجد مباريات.</div>'}`;
+    }
     if (ctx.mtab === 'tourn') {
       const [ts, tt, ms] = await Promise.all([API.tournaments.list(), API.tournaments.allTeams(), API.tournaments.matches.all()]);
       ctx.ts = ts; ctx.tmAll = ms; ctx.ttAll = tt;
@@ -298,7 +326,7 @@
       const t = ts.find(x => x.id === ctx.mt), list = ms.filter(m => m.tournament_id === ctx.mt).sort((a, b) => String(a.scheduled_at || '9').localeCompare(String(b.scheduled_at || '9')));
       const nameOf = id => (tt.find(x => x.id === id) || {}).name || 'يُحدَّد لاحقًا';
       return `${tabs}${ts.length ? `<div class="head-row"><select class="search" id="mtSel" aria-label="البطولة">${ts.map(x => `<option value="${esc(x.id)}"${x.id === ctx.mt ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
-      ${t.format !== 'league' ? '<div class="note">توليد الأدوار التالية يتم من التطبيق. من هنا تُعدَّل المواعيد والنتائج والحالة.</div>' : ''}
+      ${t.format !== 'league' ? '<div class="note">من هنا تُعدَّل المواعيد والنتائج والحالة، ويُولَّد الدور التالي تلقائيًا عند اكتمال نتائج الدور.</div>' : ''}
       ${list.length ? `<div class="grid cards">${list.map(m => tMatchCard(m, nameOf, t)).join('')}</div>` : '<div class="card empty">لا توجد مباريات في هذه البطولة بعد.</div>'}` : '<div class="card empty">لا توجد بطولات.</div>'}`;
     }
     ctx.fixtures = await API.fixtures.list();
@@ -354,7 +382,20 @@
         const knock = !m.group_name && t.format !== 'league';
         if (knock && v.score_a != null && v.score_a === v.score_b) throw new Error('لا يوجد تعادل في الأدوار الإقصائية.');
         const winner = v.score_a == null || v.score_a === v.score_b ? null : (v.score_a > v.score_b ? m.team_a_id : m.team_b_id);
-        await API.tournaments.matches.update(m.id, { scheduled_at: fromInput(v.at), venue: v.venue, status: v.status, score_a: v.score_a, score_b: v.score_b, winner_team_id: winner });
+        const status = v.score_a != null && v.status === 'upcoming' ? 'finished' : v.status;
+        const fresh = (await API.tournaments.list()).find(x => x.id === t.id) || t;
+        if (fresh.format !== 'league') {
+          const rows = await API.tournaments.matches.list(t.id), later = laterRows(fresh, rows, m);
+          const changed = m.group_name ? (m.score_a !== v.score_a || m.score_b !== v.score_b) : winner !== (m.winner_team_id || null);
+          if (m.score_a != null && later.length && changed) {
+            if (later.some(x => x.score_a != null) && !await confirmBox('تعديل هذه النتيجة سيحذف الأدوار التالية ونتائجها ويعيد توليدها. متابعة؟')) throw new Error('لم يُحفظ التعديل.');
+            const drop = later.map(x => x.id), c = cfgOf(fresh), ri = m.group_name ? -1 : c.rounds.findIndex(r => r.includes(m.id));
+            await API.tournaments.matches.removeMany(drop);
+            await API.tournaments.update(t.id, { status: 'active', config: { ...c, rounds: m.group_name ? [] : c.rounds.slice(0, ri + 1), champion: null, matchOrder: (c.matchOrder || []).filter(id => !drop.includes(id)) } });
+          }
+        }
+        await API.tournaments.matches.update(m.id, { scheduled_at: fromInput(v.at), venue: v.venue, status, score_a: v.score_a, score_b: v.score_b, winner_team_id: winner });
+        await syncTournament(t.id);
         toast('تم حفظ المباراة.');
       },
     });
@@ -441,9 +482,124 @@
     { name: 'active', label: 'مفعّل', type: 'checkbox' },
   ];
 
+  // ───── منطق البطولات (نُقل من التطبيق إلى اللوحة): المجموعات والجدولة وتوليد الأدوار ─────
+  const roundTitle = n => n === 1 ? 'النهائي' : n === 2 ? 'نصف النهائي' : n === 4 ? 'ربع النهائي' : 'دور الـ' + (n * 2);
+  const cfgOf = t => ({ qualifiers: 2, groups: [], rounds: [], champion: null, matchOrder: [], ...((t && t.config) || {}) });
+  const GN = i => String.fromCharCode(65 + i);
+  const maxGroups = n => Math.max(1, Math.min(8, Math.floor(n / 2)));
+  const pairsOf = ids => ids.flatMap((a, i) => ids.slice(i + 1).map(b => [a, b]));
+  const interleave = lists => { const out = [], n = Math.max(0, ...lists.map(l => l.length)); for (let i = 0; i < n; i++) lists.forEach(l => { if (l[i]) out.push(l[i]); }); return out; };
+  // الترتيب: النقاط ثم فارق الأهداف ثم الأهداف المسجلة ثم الاسم (نفس التطبيق)
+  function standingsOf(teams, ms) {
+    const tb = {}; teams.forEach(x => tb[x.id] = { id: x.id, name: x.name, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 });
+    ms.filter(m => m.sa != null && m.sb != null && tb[m.a] && tb[m.b]).forEach(m => {
+      const a = tb[m.a], b = tb[m.b]; a.p++; b.p++; a.gf += m.sa; a.ga += m.sb; b.gf += m.sb; b.ga += m.sa;
+      if (m.sa > m.sb) { a.w++; b.l++; a.pts += 3; } else if (m.sb > m.sa) { b.w++; a.l++; b.pts += 3; } else { a.d++; b.d++; a.pts++; b.pts++; }
+    });
+    return Object.values(tb).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf || a.name.localeCompare(b.name, 'ar'));
+  }
+  // خطة المجموعات قبل البدء: عدد المجموعات + مكان كل فريق ضمنها. تُحفظ في config.groupPlan وتُصحَّح تلقائيًا إن تغيّرت الفرق.
+  function reconcilePlan(t, teams, over = {}) {
+    const ids = teams.map(x => x.id), p = { ...(cfgOf(t).groupPlan || {}), ...over };
+    const count = Math.max(1, Math.min(maxGroups(ids.length), Number(p.count) || Math.ceil(ids.length / 4)));
+    const groups = Array.from({ length: count }, (_, i) => ({ name: GN(i), teams: [] })), placed = new Set();
+    (p.groups || []).forEach(g => { const tg = groups.find(x => x.name === g.name); if (!tg) return; (g.teams || []).forEach(id => { if (ids.includes(id) && !placed.has(id)) { tg.teams.push(id); placed.add(id); } }); });
+    ids.filter(id => !placed.has(id)).forEach(id => { [...groups].sort((a, b) => a.teams.length - b.teams.length)[0].teams.push(id); });
+    return { count, groups };
+  }
+  // توليد مباريات البداية مع الجدولة (أول موعد + فاصل بالدقائق + ملعب)
+  function buildStart(t, teams, { at, gap, venue }) {
+    const ids = teams.map(x => x.id), c = cfgOf(t), schedule = { gap: gap || 60, venue: venue || '' };
+    const mk = (round, a, b, extra) => ({ id: API.uid(), tournament_id: t.id, round_name: round, group_name: null, team_a_id: a, team_b_id: b, scheduled_at: null, venue: schedule.venue, status: 'upcoming', winner_team_id: b ? null : a, ...extra });
+    let list = [], groups = [], rounds = [];
+    if (t.format === 'league') list = pairsOf(ids).map(([a, b]) => mk('الدوري', a, b));
+    else if (t.format === 'groups') {
+      groups = reconcilePlan(t, teams).groups.filter(g => g.teams.length);
+      list = interleave(groups.map(g => pairsOf(g.teams).map(([a, b]) => mk('المجموعة ' + g.name, a, b, { group_name: g.name }))));
+    } else {
+      const n = Math.ceil(ids.length / 2);
+      for (let i = 0; i < ids.length; i += 2) list.push(mk(roundTitle(n), ids[i], ids[i + 1] || null));
+      rounds = [list.map(m => m.id)];
+    }
+    if (at) list.filter(m => m.team_b_id).forEach((m, i) => { m.scheduled_at = new Date(+new Date(at) + i * schedule.gap * 60000).toISOString(); });
+    return { list, config: { ...c, groups, rounds, champion: null, schedule, teamOrder: ids, matchOrder: list.map(m => m.id) } };
+  }
+  const rowOf = (tid, m) => ({ id: m.id, tournament_id: tid, round_name: m.round, group_name: m.group || null, team_a_id: m.a || null, team_b_id: m.b || null, scheduled_at: m.at || null, venue: m.venue || '', status: 'upcoming', winner_team_id: m.winner || null });
+  const toModel = (t, teams, rows) => { const c = cfgOf(t); return { format: t.format, teams, groups: c.groups, rounds: c.rounds.map(r => [...r]), qualifiers: c.qualifiers, schedule: c.schedule || null, champion: c.champion, status: t.status, fresh: [],
+    matches: rows.map(r => ({ id: r.id, round: r.round_name, group: r.group_name || undefined, a: r.team_a_id, b: r.team_b_id, sa: r.score_a, sb: r.score_b, winner: r.winner_team_id, at: r.scheduled_at, venue: r.venue || '' })) }; };
+  const tName = (M, id) => (M.teams.find(x => x.id === id) || {}).name || '';
+  // مباراة جديدة في الدور التالي: تُجدوَل بعد آخر موعد موجود بنفس الفاصل
+  function addMatch(M, round, a, b) {
+    let at = null;
+    if (M.schedule && M.schedule.gap && b) {
+      if (M.cursor == null) { const last = Math.max(0, ...M.matches.map(m => m.at ? +new Date(m.at) : 0)); M.cursor = last ? last + M.schedule.gap * 60000 : null; }
+      if (M.cursor != null) { at = new Date(M.cursor).toISOString(); M.cursor += M.schedule.gap * 60000; }
+    }
+    const m = { id: API.uid(), round, group: undefined, a, b, sa: null, sb: null, winner: b ? null : a, at, venue: (M.schedule && M.schedule.venue) || '' };
+    M.matches.push(m); M.fresh.push(m); return m;
+  }
+  function advance(M) {
+    if (M.format === 'groups' && !M.rounds.length) {
+      const gm = M.matches.filter(m => m.group);
+      if (!gm.length || !gm.every(m => m.sa != null && m.sb != null)) return;
+      const k = Math.max(1, Math.min(4, Number(M.qualifiers) || 2)), q = [];
+      M.groups.forEach(g => standingsOf(g.teams.map(id => M.teams.find(x => x.id === id)).filter(Boolean), gm.filter(m => m.group === g.name)).slice(0, k).forEach((r, i) => q.push({ id: r.id, group: g.name, rank: i + 1 })));
+      if (q.length < 2) return;
+      const pool = [...q].sort((a, b) => a.rank - b.rank || a.group.localeCompare(b.group)), pairs = [];
+      while (pool.length > 1) { const a = pool.shift(); let j = pool.length - 1; while (j > 0 && pool[j].group === a.group) j--; pairs.push([a.id, pool.splice(j, 1)[0].id]); }
+      if (pool.length) pairs.push([pool[0].id, null]);
+      M.rounds = [pairs.map(([a, b]) => addMatch(M, roundTitle(pairs.length), a, b).id)]; M.status = 'active';
+    }
+    for (let ri = 0; ri < M.rounds.length; ri++) {
+      const round = M.rounds[ri].map(id => M.matches.find(m => m.id === id)).filter(Boolean);
+      if (!round.length || !round.every(m => m.winner)) return;
+      if (round.length === 1) { M.champion = tName(M, round[0].winner); M.status = 'completed'; return; }
+      if (M.rounds[ri + 1]) continue;
+      const w = round.map(m => m.winner), cnt = Math.ceil(w.length / 2), ids = [];
+      for (let i = 0; i < w.length; i += 2) ids.push(addMatch(M, roundTitle(cnt), w[i], w[i + 1] || null).id);
+      M.rounds.push(ids);
+      if (cnt === 1) { const f = M.matches.find(m => m.id === ids[0]); if (f && f.winner) { M.champion = tName(M, f.winner); M.status = 'completed'; } }
+      return;
+    }
+  }
+  function recompute(M) {
+    if (M.format === 'league') {
+      const done = M.matches.length && M.matches.every(m => m.sa != null && m.sb != null);
+      if (done) { M.champion = (standingsOf(M.teams, M.matches)[0] || {}).name || null; M.status = 'completed'; }
+      else { M.champion = null; if (M.status !== 'cancelled') M.status = 'active'; }
+    } else advance(M);
+  }
+  const flatRounds = (rows, rounds) => rounds.flatMap(ids => ids.map(id => rows.find(x => x.id === id)).filter(Boolean));
+  function laterRows(t, rows, m) {
+    const c = cfgOf(t); if (t.format === 'league') return [];
+    if (m.group_name) return flatRounds(rows, c.rounds);
+    const ri = c.rounds.findIndex(r => r.includes(m.id)); return ri < 0 ? [] : flatRounds(rows, c.rounds.slice(ri + 1));
+  }
+  // بعد أي تغيير في النتائج: يولّد الدور التالي ويحدّث البطل وحالة البطولة في قاعدة البيانات
+  async function syncTournament(tid) {
+    const [ts, teams, rows] = await Promise.all([API.tournaments.list(), API.tournaments.teams.list(tid), API.tournaments.matches.list(tid)]);
+    const t = ts.find(x => x.id === tid); if (!t || t.status === 'registration' || t.status === 'cancelled') return;
+    const M = toModel(t, teams, rows), c = cfgOf(t); recompute(M);
+    if (M.fresh.length) await API.tournaments.matches.createMany(M.fresh.map(m => rowOf(t.id, m)));
+    if (M.fresh.length || M.status !== t.status || (M.champion || null) !== (c.champion || null))
+      await API.tournaments.update(t.id, { status: M.status, config: { ...c, rounds: M.rounds, champion: M.champion || null, matchOrder: [...(c.matchOrder || []), ...M.fresh.map(m => m.id)] } });
+  }
+  const liteOf = ms => ms.map(m => ({ a: m.team_a_id, b: m.team_b_id, sa: m.score_a, sb: m.score_b, group: m.group_name }));
+  const standingsHtml = (teams, lite, title) => `<div class="head-row" style="margin-top:18px"><h2 style="font-size:18px">${esc(title)}</h2></div><div class="tbl-wrap"><table><thead><tr><th>#</th><th>الفريق</th><th>لعب</th><th>ف</th><th>ت</th><th>خ</th><th>فرق</th><th>نقاط</th></tr></thead><tbody>${standingsOf(teams, lite).map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.name)}</b></td><td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.gf - r.ga}</td><td><b>${r.pts}</b></td></tr>`).join('')}</tbody></table></div>`;
+
+  // 7.5) ترتيب الفرق (الصفحة الرئيسية في التطبيق)
+  const rkFields = [{ name: 'name', label: 'اسم الفريق', req: true, max: 40 }, { name: 'points', label: 'النقاط', type: 'number', req: true, min: 0, maxn: 9999 }];
+  const rkCheck = v => { if (v.points == null || !Number.isInteger(v.points) || v.points < 0 || v.points > 9999) throw new Error('النقاط أرقام صحيحة من 0 إلى 9999.'); };
+  VIEWS.rank = async () => {
+    const rows = ctx.rank = (await API.standings.list()).sort((a, b) => b.points - a.points || a.pos - b.pos);
+    return `<div class="head-row"><h2>ترتيب الفرق (${rows.length})</h2><button class="btn" data-act="rk-add">+ فريق</button></div>
+    <div class="note">هذا هو الترتيب الذي يظهر في الصفحة الرئيسية للتطبيق، ويُرتَّب تلقائيًا حسب النقاط.</div>
+    ${rows.length ? `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>الفريق</th><th>النقاط</th><th>إجراءات</th></tr></thead><tbody>${rows.map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.name)}</b></td><td>${r.points}</td><td><div class="row"><button class="btn sec sm" data-act="rk-edit" data-id="${esc(r.id)}">تعديل</button><button class="btn bad sm" data-act="rk-del" data-id="${esc(r.id)}">حذف</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="card empty">لا توجد فرق في الترتيب بعد.</div>'}`;
+  };
+
   // 8) الإعدادات (للمالك)
   VIEWS.settings = async () => {
-    const s = await API.settings.get(); ctx.set = s;
+    const s = await API.settings.get(); ctx.set = s; ctx.seats = await API.seats.list().catch(() => null);
     const links = Array.isArray(s.social_links) ? s.social_links.map(l => `${l.label} | ${l.url}`).join('\n') : '';
     return `<div class="head-row"><h2>إعدادات التطبيق</h2></div>
     <form id="setForm" class="card" novalidate style="max-width:720px">
@@ -456,7 +612,8 @@
       ${fieldHtml({ name: 'apk_enabled', label: 'إظهار خيار تحميل التطبيق في الإعدادات العامة', type: 'checkbox' }, !!s.apk_enabled)}
       ${fieldHtml({ name: 'apk_url', label: 'رابط ملف APK', type: 'url', max: 500, ph: 'https://…' }, s.apk_url ?? '')}
       ${fieldHtml({ name: 'apk_version', label: 'رقم الإصدار (اختياري)', max: 20 }, s.apk_version ?? '')}
-      <p class="err" id="setErr" role="alert"></p><button class="btn" type="submit">حفظ الإعدادات</button></form>`;
+      <p class="err" id="setErr" role="alert"></p><button class="btn" type="submit">حفظ الإعدادات</button></form>
+      ${ctx.seats ? `<form id="seatForm" class="card" novalidate style="max-width:720px;margin-top:14px"><b>أرقام الجلوس المعتمدة (${ctx.seats.length})</b><p class="muted">رقم في كل سطر (6 أرقام). الحفظ يضيف الأرقام الجديدة فقط ولا يحذف الموجودة.</p><textarea id="seatList" rows="8" style="width:100%;margin:8px 0;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--surface)" aria-label="أرقام الجلوس">${esc(ctx.seats.join('\n'))}</textarea><p class="err" id="seatErr" role="alert"></p><button class="btn" type="submit">حفظ القائمة</button></form>` : '<div class="note">تعذّرت قراءة قائمة أرقام الجلوس (راجع صلاحيات قاعدة البيانات).</div>'}`;
   };
   AFTER.settings = () => {
     const form = $('#setForm'); form.onsubmit = async e => {
@@ -474,6 +631,20 @@
         await API.settings.save({ app_name: name, app_tagline: g('app_tagline').value.trim(), app_description: g('app_description').value.trim(), show_slider: g('show_slider').checked, social_links: links, apk_enabled: g('apk_enabled').checked, apk_url: apk, apk_version: g('apk_version').value.trim() });
         toast('تم حفظ الإعدادات وستظهر للمستخدمين فورًا.');
       } catch (ex) { err.textContent = ex.message; }
+    };
+  };
+
+  const digits = s => String(s).replace(/[٠-٩]/g, d => d.charCodeAt(0) - 1632).replace(/[۰-۹]/g, d => d.charCodeAt(0) - 1776);
+  const _afterSettings = AFTER.settings;
+  AFTER.settings = () => {
+    _afterSettings();
+    const f = $('#seatForm'); if (!f) return;
+    f.onsubmit = async e => {
+      e.preventDefault(); const err = $('#seatErr'); err.textContent = '';
+      const arr = uniq(digits($('#seatList').value).split(/\s+/).filter(Boolean));
+      if (!arr.length) { err.textContent = 'أدخل رقمًا واحدًا على الأقل.'; return; }
+      const bad = arr.find(x => !/^[0-9]{6}$/.test(x)); if (bad) { err.textContent = `رقم غير صالح: ${bad} (يجب 6 أرقام).`; return; }
+      try { await API.seats.add(arr); toast('تم حفظ قائمة أرقام الجلوس.'); render(true); } catch (ex) { err.textContent = ex.message; }
     };
   };
 
@@ -510,12 +681,12 @@
         { name: 'start_date', label: 'تاريخ البداية', type: 'date' }, { name: 'end_date', label: 'تاريخ النهاية', type: 'date' }, { name: 'description', label: 'وصف', type: 'textarea', max: 500 }],
       values: { sport: SPORTS[0], format: 'groups' }, save: async v => {
         if (v.name.length < 2) throw new Error('اسم البطولة حرفان على الأقل.'); if (v.start_date && v.end_date && v.end_date < v.start_date) throw new Error('تاريخ النهاية قبل البداية.');
-        await API.tournaments.create({ name: v.name, sport: v.sport, format: v.format, start_date: v.start_date || null, end_date: v.end_date || null, description: v.description || '' }); toast('تم إنشاء البطولة. أضف فرقها ثم ابدأها من التطبيق.'); } }) && render(); },
+        await API.tournaments.create({ name: v.name, sport: v.sport, format: v.format, start_date: v.start_date || null, end_date: v.end_date || null, description: v.description || '' }); toast('تم إنشاء البطولة. أضف فرقها وحدّد شكل المجموعات ثم ابدأها.'); } }) && render(); },
     async 't-edit'(el) { const t = byId(ctx.ts, el.dataset.id); if (!t) return;
       const stOpts = (t.matchCount > 0 ? ['active', 'completed', 'cancelled'] : ['registration', 'cancelled']).map(k => [k, T_ST[k]]);
       await formBox({ title: 'تعديل البطولة', fields: [
         { name: 'name', label: 'اسم البطولة', req: true, max: 80 }, { name: 'sport', label: 'الرياضة', type: 'select', options: SPORTS.map(s => [s, s]) },
-        { name: 'status', label: 'الحالة', type: 'select', options: stOpts, help: 'إعادة فتح التسجيل بعد بدء البطولة تتم من التطبيق (لأنها تحذف المباريات).' },
+        { name: 'status', label: 'الحالة', type: 'select', options: stOpts, help: 'إعادة فتح التسجيل بعد بدء البطولة تتم من صفحة البطولة بزر «إعادة فتح التسجيل» (لأنها تحذف المباريات).' },
         { name: 'start_date', label: 'تاريخ البداية', type: 'date' }, { name: 'end_date', label: 'تاريخ النهاية', type: 'date' }, { name: 'description', label: 'وصف', type: 'textarea', max: 500 }],
       values: { name: t.name, sport: t.sport, status: stOpts.some(o => o[0] === t.status) ? t.status : stOpts[0][0], start_date: t.start_date || '', end_date: t.end_date || '', description: t.description || '' },
       save: async v => { if (v.name.length < 2) throw new Error('اسم البطولة حرفان على الأقل.'); if (v.start_date && v.end_date && v.end_date < v.start_date) throw new Error('تاريخ النهاية قبل البداية.');
@@ -537,9 +708,9 @@
     async 'tm-add'() { const ts = ctx.tt; await formBox({ title: 'مباراة جديدة في الدوري', fields: [
         { name: 'a', label: 'الفريق الأول', type: 'select', options: ts.map(x => [x.id, x.name]) }, { name: 'b', label: 'الفريق الثاني', type: 'select', options: ts.map(x => [x.id, x.name]) },
         { name: 'at', label: 'الموعد', type: 'datetime-local' }, { name: 'venue', label: 'الملعب', max: 60 }], values: { b: ts[1]?.id },
-      save: async v => { if (v.a === v.b) throw new Error('اختر فريقين مختلفين.'); await API.tournaments.matches.create({ tournament_id: ctx.tid, round_name: 'الدوري', team_a_id: v.a, team_b_id: v.b, scheduled_at: fromInput(v.at), venue: v.venue, status: 'upcoming' }); toast('تمت إضافة المباراة.'); } }) && render(true); },
+      save: async v => { if (v.a === v.b) throw new Error('اختر فريقين مختلفين.'); await API.tournaments.matches.create({ tournament_id: ctx.tid, round_name: 'الدوري', team_a_id: v.a, team_b_id: v.b, scheduled_at: fromInput(v.at), venue: v.venue, status: 'upcoming' }); await syncTournament(ctx.tid); toast('تمت إضافة المباراة.'); } }) && render(true); },
     async 'tm-edit'(el) { const list = ctx.tm || ctx.tmAll || [], m = byId(list, el.dataset.id), t = byId(ctx.ts, el.dataset.t); if (m && t) await tMatchForm(m, t) && render(true); },
-    async 'tm-del'(el) { if (!await confirmBox('حذف هذه المباراة وتسجيلاتها؟')) return; try { await API.tournaments.matches.remove(el.dataset.id); toast('تم حذف المباراة.'); render(true); } catch (e) { fail(e); } },
+    async 'tm-del'(el) { if (!await confirmBox('حذف هذه المباراة وتسجيلاتها؟')) return; try { await API.tournaments.matches.remove(el.dataset.id); await syncTournament(ctx.tid || ctx.mt); toast('تم حذف المباراة.'); render(true); } catch (e) { fail(e); } },
 
     mtab(el) { ctx.mtab = el.dataset.v; render(); },
     async 'fx-add'() { await fixtureForm(null) && render(true); },
@@ -549,6 +720,60 @@
     async 'fx-del'(el) { const f = byId(ctx.fixtures, el.dataset.id); if (!f) return;
       if (!await confirmBox(`حذف مباراة «${f.team_a} × ${f.team_b}» مع أهدافها وتمريراتها المسجلة؟`)) return;
       try { await API.fixtures.remove(f.id); toast('تم حذف المباراة.'); render(true); } catch (e) { fail(e); } },
+
+    // ── شكل المجموعات قبل البدء ──
+    async 'gp-up'(el) { await gpEdit(p => gpSwap(p, el.dataset.id, -1)); },
+    async 'gp-dn'(el) { await gpEdit(p => gpSwap(p, el.dataset.id, 1)); },
+    async 'gp-auto'() { await gpEdit(p => { p.groups = []; }); },
+    // ── بدء البطولة وجدولة المباريات ──
+    async 't-start'() {
+      const t = ctx.cur, teams = ctx.tt; if (!t || teams.length < 2) return;
+      await formBox({ title: 'بدء البطولة', note: 'ستُولَّد المباريات الآن وتُقفل قائمة الفرق وتوزيع المجموعات.', okText: 'بدء البطولة',
+        fields: [{ name: 'at', label: 'موعد أول مباراة (اختياري)', type: 'datetime-local', help: 'اتركه فارغًا لتحديد المواعيد لاحقًا مباراة مباراة.' }, { name: 'gap', label: 'الفاصل بين المباريات (بالدقائق)', type: 'number', min: 5, maxn: 1440 }, { name: 'venue', label: 'الملعب (اختياري)', max: 60 }],
+        values: { gap: (cfgOf(t).schedule || {}).gap || 60 },
+        save: async v => {
+          if (v.at && isNaN(+new Date(v.at))) throw new Error('الموعد غير صحيح.');
+          if (v.gap != null && (v.gap < 5 || v.gap > 1440)) throw new Error('الفاصل بين 5 و1440 دقيقة.');
+          const { list, config } = buildStart(t, teams, { at: v.at, gap: v.gap || 60, venue: v.venue });
+          await API.tournaments.matches.createMany(list);
+          try { await API.tournaments.update(t.id, { status: 'active', config }); }
+          catch (e) { await API.tournaments.matches.removeMany(list.map(m => m.id)).catch(() => {}); throw e; }
+          await syncTournament(t.id); toast('بدأت البطولة وتولّدت المباريات.');
+        } }) && render(true);
+    },
+    async 't-resched'() {
+      const t = ctx.cur, rows = (ctx.tm || []).filter(m => m.status !== 'finished' && m.team_a_id && m.team_b_id);
+      if (!rows.length) { toast('لا توجد مباريات غير منتهية لجدولتها.', false); return; }
+      const c = cfgOf(t), first = rows.map(m => m.scheduled_at).filter(Boolean).sort()[0];
+      await formBox({ title: 'إعادة جدولة المباريات', note: `سيُعاد تحديد موعد ${rows.length} مباراة غير منتهية بترتيبها الحالي، وتبقى المباريات المنتهية كما هي.`, okText: 'تطبيق',
+        fields: [{ name: 'at', label: 'موعد أول مباراة', type: 'datetime-local', req: true }, { name: 'gap', label: 'الفاصل بين المباريات (بالدقائق)', type: 'number', req: true, min: 5, maxn: 1440 }, { name: 'venue', label: 'الملعب (اتركه فارغًا لإبقاء الحالي)', max: 60 }],
+        values: { at: toInput(first), gap: (c.schedule || {}).gap || 60, venue: '' },
+        save: async v => {
+          if (isNaN(+new Date(v.at))) throw new Error('الموعد غير صحيح.');
+          if (!v.gap || v.gap < 5 || v.gap > 1440) throw new Error('الفاصل بين 5 و1440 دقيقة.');
+          const ord = new Map((c.matchOrder || []).map((id, i) => [id, i])), when = m => m.scheduled_at ? +new Date(m.scheduled_at) : Infinity;
+          const sorted = [...rows].sort((a, b) => (when(a) - when(b)) || ((ord.get(a.id) ?? 1e9) - (ord.get(b.id) ?? 1e9)));
+          for (let i = 0; i < sorted.length; i++) { const p = { scheduled_at: new Date(+new Date(v.at) + i * v.gap * 60000).toISOString() }; if (v.venue) p.venue = v.venue; await API.tournaments.matches.update(sorted[i].id, p); }
+          await API.tournaments.update(t.id, { config: { ...c, schedule: { gap: v.gap, venue: v.venue || (c.schedule || {}).venue || '' } } });
+          toast('تمت إعادة الجدولة.');
+        } }) && render(true);
+    },
+    async 't-reopen'() {
+      const t = ctx.cur; if (!t) return;
+      if (!await confirmBox(`سيتم حذف كل مباريات «${t.name}» ونتائجها وتسجيلاتها وإعادة فتح التسجيل. لا يمكن التراجع.`, { typed: t.name, okText: 'حذف وإعادة الفتح' })) return;
+      try { const c = cfgOf(t); if ((ctx.tm || []).length) await API.tournaments.matches.removeMany(ctx.tm.map(m => m.id));
+        await API.tournaments.update(t.id, { status: 'registration', config: { ...c, groups: [], rounds: [], champion: null, matchOrder: [] } }); toast('أُعيد فتح التسجيل.'); render(true); } catch (e) { fail(e); }
+    },
+    // ── ترتيب الفرق ──
+    async 'rk-add'() { await formBox({ title: 'فريق في الترتيب', fields: rkFields, values: { points: 0 }, save: async v => {
+        rkCheck(v); if (ctx.rank.some(r => norm(r.name) === norm(v.name))) throw new Error('هذا الفريق موجود بالفعل في الترتيب.');
+        await API.standings.save([{ id: API.uid(), sport: 'overall', name: v.name.slice(0, 40), points: v.points, pos: ctx.rank.length }]); toast('تمت الإضافة.'); } }) && render(true); },
+    async 'rk-edit'(el) { const r = byId(ctx.rank, el.dataset.id); if (!r) return;
+      await formBox({ title: 'تعديل الفريق في الترتيب', fields: rkFields, values: { name: r.name, points: r.points }, save: async v => {
+        rkCheck(v); if (ctx.rank.some(x => x.id !== r.id && norm(x.name) === norm(v.name))) throw new Error('يوجد فريق بنفس الاسم في الترتيب.');
+        await API.standings.save([{ ...r, name: v.name.slice(0, 40), points: v.points }]); toast('تم الحفظ.'); } }) && render(true); },
+    async 'rk-del'(el) { const r = byId(ctx.rank, el.dataset.id); if (!r || !await confirmBox(`حذف «${r.name}» من الترتيب؟`)) return;
+      try { await API.standings.remove(r.id); toast('تم الحذف.'); render(true); } catch (e) { fail(e); } },
 
     'ev-go'(el) { ctx.sel = el.dataset.key; location.hash = '#scorers'; },
     async 'ev-edit'(el) { const { kind, A, B, mt } = ctx.evCtx, list = kind === 'fixture' ? ctx.ev.fixtureEvents : ctx.ev.matchEvents, e = byId(list, el.dataset.id); if (!e) return;
@@ -569,6 +794,18 @@
     async 'n-add'() { await formBox({ title: 'إشعار جديد', note: 'سيصل إلى جميع مستخدمي التطبيق.', okText: 'إرسال', fields: [{ name: 'title', label: 'العنوان', req: true, max: 60 }, { name: 'body', label: 'النص', type: 'textarea', req: true, max: 240 }],
       save: async v => { if (!v.body.trim()) throw new Error('اكتب نص الإشعار.'); await API.notifications.create({ title: v.title, body: v.body.trim() }); toast('تم إرسال الإشعار.'); } }) && render(true); },
     async 'n-del'(el) { if (!await confirmBox('حذف هذا الإشعار من جميع المستخدمين؟')) return; try { await API.notifications.remove(el.dataset.id); toast('تم حذف الإشعار.'); render(true); } catch (e) { fail(e); } },
+  };
+  // ── تعديل خطة المجموعات (تُحفظ في config.groupPlan) ──
+  const gpSwap = (p, id, d) => { const g = p.groups.find(x => x.teams.includes(id)); if (!g) return; const i = g.teams.indexOf(id), k = i + d; if (k < 0 || k >= g.teams.length) return; [g.teams[i], g.teams[k]] = [g.teams[k], g.teams[i]]; };
+  async function gpEdit(fn) {
+    const t = ctx.cur; if (!t || !ctx.plan) return;
+    const plan = JSON.parse(JSON.stringify(ctx.plan)); fn(plan);
+    try { const next = reconcilePlan(t, ctx.tt, plan); await API.tournaments.update(t.id, { config: { ...cfgOf(t), groupPlan: next } }); render(true); } catch (e) { fail(e); }
+  }
+  const CHG = {
+    'gp-count'(el) { gpEdit(p => { p.count = Number(el.value); p.groups = []; }); },
+    'gp-move'(el) { const id = el.dataset.id; gpEdit(p => { p.groups.forEach(g => { g.teams = g.teams.filter(x => x !== id); }); const tg = p.groups.find(g => g.name === el.value); if (tg) tg.teams.push(id); }); },
+    async 'gp-q'(el) { const t = ctx.cur; try { await API.tournaments.update(t.id, { config: { ...cfgOf(t), qualifiers: Number(el.value) } }); toast('تم حفظ عدد المتأهلين.'); render(true); } catch (e) { fail(e); } },
   };
   const saveAnn = a => async v => {
     const s = fromInput(v.starts_at), e = fromInput(v.ends_at); if (!s) throw new Error('حدّد وقت بدء الظهور.');
@@ -599,11 +836,12 @@
       const el = e.target.closest('[data-act]'); if (!el || !ACT[el.dataset.act]) return;
       if (el.disabled) return; ACT[el.dataset.act](el);
     });
+    document.addEventListener('change', e => { const el = e.target.closest('[data-chg]'); if (el && CHG[el.dataset.chg]) CHG[el.dataset.chg](el); });
     $('#menuBtn').onclick = () => openSide(true); $('#scrim').onclick = () => openSide(false);
     $('#signOut').onclick = async () => { await API.signOut(); location.replace('index.html'); };
     API.onSignOut(() => location.replace('index.html'));
     window.addEventListener('hashchange', route);
-    stopLive = API.live(['profiles', 'team_catalog', 'tournaments', 'teams', 'matches', 'fixtures', 'match_scorers', 'fixture_scorers', 'announcements', 'notifications', 'app_settings'].filter(t => t !== 'profiles' || isOwner), (t, st) => { if (t === '__status') setLive(st); else scheduleRefresh(); });
+    stopLive = API.live(['profiles', 'team_catalog', 'tournaments', 'teams', 'matches', 'fixtures', 'match_scorers', 'fixture_scorers', 'team_standings', 'announcements', 'notifications', 'app_settings'].filter(t => t !== 'profiles' || isOwner), (t, st) => { if (t === '__status') setLive(st); else scheduleRefresh(); });
     route();
   }
   boot();

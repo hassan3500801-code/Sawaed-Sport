@@ -126,3 +126,13 @@ html[data-theme="dark"] .score{color:var(--gold)}
   .grid.cards{grid-template-columns:minmax(0,1fr)}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* شكل المجموعات قبل بدء البطولة */
+.gp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:12px}
+.gp-box{border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--paper)}
+.gp-box>b{display:inline-block;margin-bottom:6px}
+.gp-row{display:flex;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--line)}
+.gp-n{width:20px;color:var(--mute);font-size:12px;text-align:center}
+.gp-nm{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gp-sel{max-width:118px;min-height:34px;font-size:13px;padding:0 8px}
+.gp-row .btn{padding:0 8px}

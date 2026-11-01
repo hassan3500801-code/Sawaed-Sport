@@ -16,8 +16,9 @@
   if(!localTournaments.length && typeof window.SawaedLegacyTournamentExport==='function'){localTournaments=window.SawaedLegacyTournamentExport();putLocal(localKey,localTournaments);}
   let demoSeats = getLocal(seatKey, []);
   const sports = ['كرة القدم','كرة الطائرة','الشطرنج','البلياردو','البلايستيشن'];
-  const isAdmin = () => !!(profile && ['admin','team_leader'].includes(profile.role) && profile.approved);
-  const isRootAdmin = () => !!(profile && profile.role === 'admin' && profile.approved);
+  const isStaff = () => !!(profile && ['admin','team_leader'].includes(profile.role) && profile.approved); // لإظهار رابط لوحة الإدارة فقط
+  const isAdmin = () => false;      // أدوات التحكم انتقلت بالكامل إلى admin.html؛ التطبيق للعرض فقط
+  const isRootAdmin = () => false;
   const teamCatalogKey = 'sawaed_team_catalog_v1';
   let localTeams = getLocal(teamCatalogKey, []);
   const msg = (id, text, good=false) => { const el=$(id); if(el){el.textContent=text;el.className=good?'success-msg':'err';} };
@@ -30,7 +31,7 @@
     window.state && (window.state.admin = isAdmin());
     const sendBtn=$('#sendBtn'); if(sendBtn) sendBtn.hidden=!isAdmin();
     if(isAdmin()&&localTournaments.some(t=>t.legacyImported)){for(const t of localTournaments.filter(t=>t.legacyImported)){try{await persistTournament(t);}catch(err){console.warn('تعذرت مزامنة بطولة قديمة',err);}}}
-    injectAdminSeats();injectAdminLink();renderAuthState();renderTournaments();renderTeams();renderManagerTools();renderFixtures();renderRank();
+    injectAdminLink();renderAuthState();renderTournaments();renderTeams();renderFixtures();renderRank();
   }
   // شارة «حساب موثق» تظهر للمالك والمشرفين فقط
   function accountPill(){const staff=profile&&['admin','team_leader'].includes(profile.role)&&profile.approved;if(staff)return `<p class="status-pill verified">✓ حساب موثق · ${profile.role==='admin'?'المالك':'مشرف'}</p>`;return '';}
@@ -202,7 +203,7 @@
     const sortBy=(arr,order)=>{if(!Array.isArray(order))return arr;const ix=new Map(order.map((id,i)=>[id,i]));return [...arr].sort((a,b)=>(ix.has(a.id)?ix.get(a.id):1e9)-(ix.has(b.id)?ix.get(b.id):1e9));};
     return data.map(r=>{const c=r.config||{};return {id:r.id,name:r.name,sport:r.sport,format:r.format,status:r.status,qualifiers:c.qualifiers||2,groups:c.groups||[],rounds:c.rounds||[],champion:c.champion||undefined,
       teams:sortBy(tm.data.filter(x=>x.tournament_id===r.id).map(x=>({id:x.id,name:x.name})),c.teamOrder),
-      matches:sortBy(mt.data.filter(x=>x.tournament_id===r.id).map(x=>({id:x.id,round:x.round_name,group:x.group_name||undefined,a:x.team_a_id,b:x.team_b_id,sa:x.score_a,sb:x.score_b,winner:x.winner_team_id,status:normStatus(x.status),events:scs.filter(s=>s.match_id===x.id).map(s=>({id:s.id,side:s.team_id&&s.team_id===x.team_b_id?'b':'a',name:s.player_name,type:s.event_type,minute:s.minute}))})),c.matchOrder)};});
+      matches:sortBy(mt.data.filter(x=>x.tournament_id===r.id).map(x=>({id:x.id,round:x.round_name,group:x.group_name||undefined,a:x.team_a_id,b:x.team_b_id,sa:x.score_a,sb:x.score_b,winner:x.winner_team_id,status:normStatus(x.status),at:x.scheduled_at||null,venue:x.venue||'',events:scs.filter(s=>s.match_id===x.id).map(s=>({id:s.id,side:s.team_id&&s.team_id===x.team_b_id?'b':'a',name:s.player_name,type:s.event_type,minute:s.minute}))})),c.matchOrder)};});
   }
   const sportOptions=cur=>sports.map(s=>`<option${s===cur?' selected':''}>${esc(s)}</option>`).join('');
   async function renderTournaments(){
@@ -377,16 +378,6 @@
         openTeamId=null;await renderTeams();go('sports');}};
     const f=$('#teamEditForm');if(f)wireLogo(f);if(f)f.onsubmit=async e=>{e.preventDefault();const err=await saveTeam(t.id,new FormData(f));if(err){msg('#teamEditMsg',err);return;}teamEditing=false;await renderTeams();renderTeamView();};
   }
-  function renderManagerTools(){
-    const settings=$('#settings');if(!settings)return;if($('#managerTools')){$('#managerTools').hidden=!isRootAdmin();return;}const card=document.createElement('div');card.id='managerTools';card.className='panel-card';card.innerHTML='<h3>إدارة صلاحيات البطولات والفرق</h3><p class="muted">تظهر هذه الأدوات للمالك فقط. أدخل رقم جلوس طالب معتمد لمنحه أو سحب صلاحية مشرف.</p><input id="managerSeat" class="field" inputmode="numeric" maxlength="6" placeholder="رقم جلوس الطالب (6 أرقام)"><div class="action-row"><button id="grantManager" class="cta">منح صلاحية مشرف</button><button id="revokeManager" class="secondary">سحب الصلاحية</button></div><p id="managerMsg" class="muted"></p>';settings.appendChild(card);card.hidden=!isRootAdmin();
-    $('#grantManager').onclick=()=>changeManager(true);$('#revokeManager').onclick=()=>changeManager(false);
-  }
-  async function changeManager(grant){if(!isRootAdmin()||!sb){msg('#managerMsg','هذه العملية تتطلب حساب المالك الأساسي وربط قاعدة البيانات.');return;}const seat=$('#managerSeat').value.trim();if(!/^\d{6}$/.test(seat)){msg('#managerMsg','أدخل رقم جلوس صحيحًا من 6 أرقام.');return;}const {data,error}=await sb.from('profiles').select('id,full_name,role,approved').eq('seat_number',seat).maybeSingle();if(error||!data){msg('#managerMsg','لم يُعثر على حساب بهذا الرقم. يجب أن يكون الطالب قد أنشأ حسابه أولًا.');return;}if(data.role==='admin'){msg('#managerMsg','هذا الحساب مالك أساسي بالفعل.');return;}const {error:updateError}=await sb.from('profiles').update({role:grant?'team_leader':'student'}).eq('id',data.id);if(updateError){msg('#managerMsg','تعذر تحديث الصلاحية: '+updateError.message);return;}msg('#managerMsg',grant?`تم منح ${data.full_name} صلاحية التحكم في الفرق والبطولات والمباريات.`:`تم سحب صلاحية المشرف من ${data.full_name}.`,true);}
-
-  // إدارة قائمة أرقام الجلوس للمالك من إعدادات النظام، مع تخزين محلي مؤقت فقط قبل الربط.
-  function injectAdminSeats(){const settings=$('#settings');if(!settings)return;if($('#seatAdminCard')){$('#seatAdminCard').hidden=!isRootAdmin();return;}const card=document.createElement('div');card.id='seatAdminCard';card.className='panel-card';card.hidden=!isRootAdmin();card.innerHTML='<h3>قائمة أرقام الجلوس المعتمدة</h3><p class="muted">أدخل الأرقام، رقمًا في كل سطر. هذه القائمة المحلية للتجربة فقط؛ بعد ربط Supabase ستُحفظ القائمة في قاعدة البيانات الآمنة.</p><textarea id="seatNumbers" class="plain-field" rows="7" placeholder="123456\n234567"></textarea><button class="cta" id="saveSeats">حفظ القائمة</button><p id="seatMsg" class="muted"></p>';settings.appendChild(card);$('#seatNumbers').value=demoSeats.join('\n');$('#saveSeats').onclick=()=>{if(!isRootAdmin()){msg('#seatMsg','هذه الوظيفة متاحة للمالك بعد إعداد تسجيل الدخول الآمن.');return;}const arr=$('#seatNumbers').value.split(/\s+/).filter(Boolean);const bad=arr.filter(x=>!/^[0-9]{6}$/.test(x));if(bad.length){msg('#seatMsg','الأرقام يجب أن تتكون من 6 أرقام بالضبط.');return;}demoSeats=[...new Set(arr)];putLocal(seatKey,demoSeats);if(sb&&isAdmin()){sb.rpc('admin_import_seat_numbers',{p_numbers:demoSeats}).then(({error})=>msg('#seatMsg',error?'تعذر حفظ القائمة في قاعدة البيانات: '+error.message:`تم استيراد ${demoSeats.length} رقم جلوس إلى قاعدة البيانات.`,!error));}else msg('#seatMsg',`تم حفظ ${demoSeats.length} رقمًا في هذا المتصفح فقط. اربط Supabase لحفظها بأمان ومشاركتها.`,true);};}
-
-
   // ===== ترتيب الفرق: يتحكم به المالك والمشرفون (الفرق، النقاط، الترتيب) =====
   const rankKey='sawaed_standings_v1';
   let localRank=getLocal(rankKey,[]);
@@ -448,19 +439,27 @@
   const sportIcon=name=>{try{return (SPORTS.find(x=>x.name===name)||{}).icon||'trophy';}catch{return 'trophy';}};
   function normalizeFixture(r){
     const at=r.at??r.scheduled_at??r.date??r.match_date;
-    return {id:String(r.id??uid()),sport:String(r.sport??'كرة القدم'),a:String(r.a??r.team_a??r.home_team??''),b:String(r.b??r.team_b??r.away_team??''),at,venue:String(r.venue??'').trim(),status:normStatus(r.status),sa:r.sa??r.score_a??null,sb:r.sb??r.score_b??null,events:Array.isArray(r.events)?r.events:[]};
+    return {id:String(r.id??uid()),sport:String(r.sport??'كرة القدم'),a:String(r.a??r.team_a??r.home_team??''),b:String(r.b??r.team_b??r.away_team??''),at,venue:String(r.venue??'').trim(),status:normStatus(r.status),sa:r.sa??r.score_a??null,sb:r.sb??r.score_b??null,events:Array.isArray(r.events)?r.events:[],tour:r.tour?String(r.tour):'',round:r.round?String(r.round):''};
   }
   const validFixture=f=>f.id&&f.a&&f.b&&Number.isFinite(new Date(f.at).getTime());
+  // مباريات البطولات (الدوري/المجموعات/الإقصاء) التي لها موعد وفريقان: تُعرض مع المباريات العامة وتتزامن معها
+  async function tournamentFixtures(){
+    try{
+      const ts=await loadTournaments();
+      return ts.flatMap(t=>t.matches.filter(m=>m.at&&m.a&&m.b).map(m=>normalizeFixture({id:'tm_'+m.id,sport:t.sport,a:tn(t,m.a),b:tn(t,m.b),at:m.at,venue:m.venue,status:m.status,sa:m.sa,sb:m.sb,events:m.events,tour:t.name,round:m.group?'المجموعة '+m.group:m.round}))).filter(validFixture);
+    }catch(e){console.warn('تعذر تحميل مباريات البطولات:',e.message||e);return [];}
+  }
   async function loadFixtures(){
     if(sb){
       const [f,ev]=await Promise.all([sb.from('fixtures').select('*').order('scheduled_at',{ascending:true}),sb.from('fixture_scorers').select('*')]);
       if(!f.error&&Array.isArray(f.data)){
         if(ev.error)console.warn('تعذر تحميل مسجلي المباريات:',ev.error.message);
         const evs=ev.error?[]:ev.data;
-        return f.data.map(r=>normalizeFixture({...r,events:evs.filter(x=>x.fixture_id===r.id).map(x=>({id:x.id,side:x.side==='b'?'b':'a',name:x.player_name,type:x.event_type,minute:x.minute}))})).filter(validFixture);
+        const base=f.data.map(r=>normalizeFixture({...r,events:evs.filter(x=>x.fixture_id===r.id).map(x=>({id:x.id,side:x.side==='b'?'b':'a',name:x.player_name,type:x.event_type,minute:x.minute}))})).filter(validFixture);
+        return [...base,...await tournamentFixtures()];
       }
       console.warn('تعذر تحميل المباريات من قاعدة البيانات:',f.error?.message);
-      if(isAdmin())toast('تعذر تحميل المباريات: '+(f.error?.message||''));
+      return [...localFixtures.map(normalizeFixture).filter(validFixture),...await tournamentFixtures()];
     }
     return localFixtures.map(normalizeFixture).filter(validFixture);
   }
@@ -494,7 +493,7 @@
   function fixtureCard(f,admin,full){
     const d=new Date(f.at),ic=typeof svg==='function'?svg(ICON[sportIcon(f.sport)],30):'',cal=typeof svg==='function'?svg(ICON.calendar,14):'';
     const score=f.sa!=null&&f.sb!=null?` <span class="fx-score">${f.sa} : ${f.sb}</span>`:'',open=full&&openFx===f.id,names=[f.a,f.b];
-    return `<article class="ev fx${open?' open':''}" data-fx="${esc(f.id)}"><div class="fx-row"><div class="pic">${ic}</div><div style="flex:1;min-width:0"><h4>${esc(f.a)} × ${esc(f.b)}${score}</h4><p>${esc(f.sport)}${f.venue?' · '+esc(f.venue):''}</p><time>${cal}${fmtDate(d)} · ${fmtTime(d)}</time><div>${stPill(f.status)}</div></div></div>${full?`<div class="action-row"><button type="button" class="chip" data-det="${esc(f.id)}">${open?'إخفاء التفاصيل':'تفاصيل المباراة'}</button>${admin?`<button class="danger fx-del" data-fx-del="${esc(f.id)}" aria-label="حذف المباراة">حذف</button>`:''}</div>`:''}${open?`<div class="match-details" data-for="${esc(f.id)}">${admin?`<h4 class="rh">حالة المباراة</h4>${stButtons(f.status,f.id)}<h4 class="rh">النتيجة</h4><div class="action-row"><input class="mini-score" type="number" inputmode="numeric" min="0" max="99" data-fsc="a" value="${f.sa??''}" aria-label="نتيجة ${esc(f.a)}"><input class="mini-score" type="number" inputmode="numeric" min="0" max="99" data-fsc="b" value="${f.sb??''}" aria-label="نتيجة ${esc(f.b)}"><button type="button" data-fx-score="${esc(f.id)}">حفظ النتيجة</button></div>`:''}${detailsHtml(f,names,admin,catalogPlayers(names))}</div>`:''}</article>`;
+    return `<article class="ev fx${open?' open':''}" data-fx="${esc(f.id)}"><div class="fx-row"><div class="pic">${ic}</div><div style="flex:1;min-width:0"><h4>${esc(f.a)} × ${esc(f.b)}${score}</h4><p>${esc(f.sport)}${f.tour?' · '+esc(f.tour)+(f.round?' ('+esc(f.round)+')':''):''}${f.venue?' · '+esc(f.venue):''}</p><time>${cal}${fmtDate(d)} · ${fmtTime(d)}</time><div>${stPill(f.status)}</div></div></div>${full?`<div class="action-row"><button type="button" class="chip" data-det="${esc(f.id)}">${open?'إخفاء التفاصيل':'تفاصيل المباراة'}</button>${admin?`<button class="danger fx-del" data-fx-del="${esc(f.id)}" aria-label="حذف المباراة">حذف</button>`:''}</div>`:''}${open?`<div class="match-details" data-for="${esc(f.id)}">${admin?`<h4 class="rh">حالة المباراة</h4>${stButtons(f.status,f.id)}<h4 class="rh">النتيجة</h4><div class="action-row"><input class="mini-score" type="number" inputmode="numeric" min="0" max="99" data-fsc="a" value="${f.sa??''}" aria-label="نتيجة ${esc(f.a)}"><input class="mini-score" type="number" inputmode="numeric" min="0" max="99" data-fsc="b" value="${f.sb??''}" aria-label="نتيجة ${esc(f.b)}"><button type="button" data-fx-score="${esc(f.id)}">حفظ النتيجة</button></div>`:''}${detailsHtml(f,names,admin,catalogPlayers(names))}</div>`:''}</article>`;
   }
   function paintFixtures(){
     const evHost=$('#events'),listHost=$('#matchList');
@@ -527,19 +526,6 @@
       listHost.onsubmit=async e=>{const form=e.target.closest('[data-evform]');if(!form)return;e.preventDefault();if(!isAdmin())return;const f=fxOf(form);if(!f)return;const r=readEvent(form);if(r.err){toast(r.err);return;}evEditing=null;
         await commitFx(f,()=>{const i=f.events.findIndex(x=>x.id===r.ev.id);if(i>=0)f.events[i]=r.ev;else f.events.push(r.ev);});};
     }
-    if(adminHost){
-      if(!admin){adminHost.innerHTML='';return;}
-      if(!$('#fixtureForm')){
-        adminHost.innerHTML=`<div class="panel-card"><h3>إضافة مباراة</h3><form id="fixtureForm" class="form-grid"><select name="sport" aria-label="الرياضة">${sports.map(x=>`<option>${x}</option>`).join('')}</select><input class="plain-field" name="a" required maxlength="40" placeholder="الفريق الأول"><input class="plain-field" name="b" required maxlength="40" placeholder="الفريق الثاني"><input class="plain-field" name="at" type="datetime-local" required aria-label="موعد المباراة"><input class="plain-field" name="venue" maxlength="60" placeholder="الملعب (اختياري)"><button class="cta" type="submit">إضافة المباراة</button><p id="fixtureMsg" class="err" role="alert"></p></form></div>`;
-        $('#fixtureForm').onsubmit=async e=>{e.preventDefault();if(!isAdmin())return;const fd=new FormData(e.target),a=String(fd.get('a')).trim(),b=String(fd.get('b')).trim(),when=new Date(fd.get('at'));
-          if(!a||!b||isNaN(+when)){msg('#fixtureMsg','أكمل بيانات المباراة.');return;}
-          if(a===b){msg('#fixtureMsg','اختر فريقين مختلفين.');return;}
-          const row={id:uid(),sport:String(fd.get('sport')),team_a:a,team_b:b,scheduled_at:when.toISOString(),venue:String(fd.get('venue')||'').trim()};
-          if(sb){const {error}=await sb.from('fixtures').insert({...row,status:'upcoming',created_by:currentUser?.id});if(error){msg('#fixtureMsg','تعذر الحفظ: '+error.message+(/status|schema cache/i.test(error.message)?' — شغّل ملف SAWAED_UPDATE.sql في Supabase.':''));return;}}
-          else upsertLocalFixture(normalizeFixture({id:row.id,sport:row.sport,a,b,at:row.scheduled_at,venue:row.venue,status:'upcoming'}));
-          e.target.reset();msg('#fixtureMsg','تمت إضافة المباراة.',true);renderFixtures();};
-      }
-    }
   }
   // تحديث تلقائي كل دقيقة لغير المشرفين ليروا حالة المباراة (جارية/انتهت) دون إعادة فتح الموقع
   setInterval(()=>{if(!document.hidden&&!isAdmin())renderFixtures();},60000);
@@ -549,8 +535,8 @@
   const httpUrl=u=>{try{return /^https?:$/.test(new URL(u).protocol);}catch(e){return false;}};
   function injectAdminLink(){
     const host=$('#settings');if(!host)return;let a=$('#adminLinkCard');
-    if(!isAdmin()){a&&a.remove();return;}
-    if(!a){a=document.createElement('div');a.id='adminLinkCard';a.className='panel-card';a.innerHTML='<h3>لوحة الإدارة</h3><p class="muted">إدارة المستخدمين والفرق والبطولات والمباريات والإعلانات.</p><a class="cta" style="text-align:center;text-decoration:none" href="admin.html">فتح لوحة الإدارة</a>';host.appendChild(a);}
+    if(!isStaff()){a&&a.remove();return;}
+    if(!a){a=document.createElement('div');a.id='adminLinkCard';a.className='panel-card';a.innerHTML='<h3>لوحة الإدارة</h3><p class="muted">كل أدوات التحكم (الفرق والبطولات والمباريات والترتيب والإشعارات والمستخدمين) موجودة في لوحة الإدارة.</p><a class="cta" style="text-align:center;text-decoration:none" href="admin.html">فتح لوحة الإدارة</a>';host.appendChild(a);}
   }
   async function loadSettings(){
     if(!sb)return;const {data,error}=await sb.from('app_settings').select('key,value');if(error||!data)return;
@@ -610,7 +596,7 @@
     const a=document.activeElement;
     if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)){rtTimer=setTimeout(flushRealtime,3000);return;}   // لا نقاطع من يكتب
     const q=new Set(rtQueue);rtQueue.clear();const has=(...n)=>n.some(x=>q.has(x));const todo=[];
-    if(has('fixtures','fixture_scorers'))todo.push(renderFixtures());
+    if(has('fixtures','fixture_scorers','matches','match_scorers','tournaments','teams'))todo.push(renderFixtures());
     if(has('tournaments','teams','matches','match_scorers')&&!tEditing)todo.push(renderTournaments());
     if(has('team_standings'))todo.push(renderRank());
     if(has('team_catalog')&&!teamEditing)todo.push(renderTeams());
@@ -623,11 +609,11 @@
   document.addEventListener('DOMContentLoaded',()=>{
     window.__sawaedAdminDemo=false;
     document.querySelectorAll('[data-auth-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.authMode)));
-    $('#authForm')?.addEventListener('submit',authSubmit);setMode('login');injectAdminSeats();renderManagerTools();
+    $('#authForm')?.addEventListener('submit',authSubmit);setMode('login');
     if(sb)sb.auth.onAuthStateChange(()=>setTimeout(()=>{refreshUser();loadAnnouncements();},0));
     refreshUser();loadSettings();loadAnnouncements();loadNotifs();startRealtime();
     const oldGo=window.go;if(typeof oldGo==='function'){/* existing navigation remains in charge */}
   });
   // expose a safe refresh hook for the existing navigation and admin toggle
-  window.SawaedBackend={renderFixtures,renderTournaments,renderRank,refresh:()=>{window.__sawaedAdminDemo=false;injectAdminSeats();renderTournaments();renderTeams();renderManagerTools();renderFixtures();renderRank();},isConfigured:()=>!!sb,isManager:isAdmin};
+  window.SawaedBackend={renderFixtures,renderTournaments,renderRank,refresh:()=>{window.__sawaedAdminDemo=false;renderTournaments();renderTeams();renderFixtures();renderRank();},isConfigured:()=>!!sb,isManager:isStaff};
 })();

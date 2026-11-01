@@ -106,7 +106,9 @@
       all: () => run(sb.from('matches').select('*')),
       update: (id, p) => mutate(sb.from('matches').update({ ...p, updated_at: new Date().toISOString() }).eq('id', id)),
       create: p => run(sb.from('matches').insert({ id: uid(), ...p })),
+      createMany: rows => run(sb.from('matches').insert(rows)),
       remove: id => mutate(sb.from('matches').delete().eq('id', id)),
+      removeMany: ids => mutate(sb.from('matches').delete().in('id', ids)),
     },
     allTeams: () => run(sb.from('teams').select('id,tournament_id,name')),
   };
@@ -134,6 +136,19 @@
       const [f, m] = await Promise.all([run(sb.from('fixture_scorers').select('*')), run(sb.from('match_scorers').select('*'))]);
       return { fixtureEvents: f, matchEvents: m };
     },
+  };
+
+  // ───── ترتيب الفرق في الصفحة الرئيسية (team_standings) ─────
+  const standings = {
+    list: () => run(sb.from('team_standings').select('*').order('points', { ascending: false })),
+    save: rows => run(sb.from('team_standings').upsert(rows.map(r => ({ id: r.id, sport: r.sport || 'overall', name: r.name, points: r.points, pos: r.pos ?? 0, updated_by: S.user.id, updated_at: new Date().toISOString() })))),
+    remove: id => mutate(sb.from('team_standings').delete().eq('id', id)),
+  };
+
+  // ───── أرقام الجلوس المعتمدة (للمالك فقط؛ RLS والدالة تمنع غيره) ─────
+  const seats = {
+    list: async () => (await run(sb.from('approved_seat_numbers').select('seat_number').order('seat_number'))).map(r => r.seat_number),
+    add: numbers => run(sb.rpc('admin_import_seat_numbers', { p_numbers: numbers })),
   };
 
   // ───── الإعلانات والإشعارات ─────
@@ -164,5 +179,5 @@
     return () => sb.removeChannel(ch);
   }
 
-  window.AdminAPI = { configured, S, uid, norm, errMsg, count, guard, signOut, onSignOut, users, teams, tournaments, fixtures, events, announcements, notifications, settings, live };
+  window.AdminAPI = { configured, S, uid, norm, errMsg, count, guard, signOut, onSignOut, users, teams, tournaments, fixtures, standings, seats, events, announcements, notifications, settings, live };
 })();
