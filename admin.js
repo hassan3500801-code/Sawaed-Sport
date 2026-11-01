@@ -299,7 +299,7 @@
   const tMatchCard = (m, nameOf, t, showT) => `<div class="card"><div class="row sp"><span class="badge navy">${showT && t ? esc(t.name) + ' · ' : ''}${esc(m.round_name)}${m.group_name ? ' · ' + esc(m.group_name) : ''}</span><span class="badge ${ST_CLS[m.status] || ''}">${ST[m.status] || ''}</span></div>
     <div class="match-row"><b>${esc(nameOf(m.team_a_id))}</b><span class="score">${m.score_a ?? '–'} : ${m.score_b ?? '–'}</span><b>${esc(nameOf(m.team_b_id))}</b></div>
     <p class="muted" style="text-align:center">${fmtDT(m.scheduled_at)}${m.venue ? ' · ' + esc(m.venue) : ''}</p>
-    <div class="row" style="margin-top:10px;justify-content:center"><button class="btn sec sm" data-act="tm-edit" data-id="${esc(m.id)}" data-t="${esc(t.id)}">تعديل</button><button class="btn sec sm" data-act="ev-go" data-key="m:${esc(m.id)}">الأهداف</button>${t.format === 'league' ? `<button class="btn bad sm" data-act="tm-del" data-id="${esc(m.id)}">حذف</button>` : ''}</div></div>`;
+    <div class="row" style="margin-top:10px;justify-content:center"><button class="btn sec sm" data-act="tm-edit" data-id="${esc(m.id)}" data-t="${esc(t.id)}">تعديل</button><button class="btn sec sm" data-act="ev-quick" data-kind="m" data-id="${esc(m.id)}">+ هدف / صناعة</button><button class="btn sec sm" data-act="ev-go" data-key="m:${esc(m.id)}">إدارة التسجيلات</button>${t.format === 'league' ? `<button class="btn bad sm" data-act="tm-del" data-id="${esc(m.id)}">حذف</button>` : ''}</div></div>`;
 
   // 5) المباريات
   const fixtureCard = f => `<div class="card"><div class="row sp"><span class="badge navy">${esc(f.sport)}</span><span class="badge ${ST_CLS[f.status] || ''}">${ST[f.status] || ''}</span></div>
@@ -307,7 +307,7 @@
     <p class="muted" style="text-align:center">${fmtDT(f.scheduled_at)}${f.venue ? ' · ' + esc(f.venue) : ''}</p>
     <div class="row" style="margin-top:10px;justify-content:center">
       ${['upcoming', 'live', 'finished'].filter(s => s !== f.status).map(s => `<button class="btn sec sm" data-act="fx-status" data-id="${esc(f.id)}" data-s="${s}">${ST[s]}</button>`).join('')}</div>
-    <div class="row" style="margin-top:8px;justify-content:center"><button class="btn sec sm" data-act="fx-edit" data-id="${esc(f.id)}">تعديل</button><button class="btn sec sm" data-act="ev-go" data-key="f:${esc(f.id)}">الأهداف</button><button class="btn bad sm" data-act="fx-del" data-id="${esc(f.id)}">حذف</button></div></div>`;
+    <div class="row" style="margin-top:8px;justify-content:center"><button class="btn sec sm" data-act="fx-edit" data-id="${esc(f.id)}">تعديل</button><button class="btn sec sm" data-act="ev-quick" data-kind="f" data-id="${esc(f.id)}">+ هدف / صناعة</button><button class="btn sec sm" data-act="ev-go" data-key="f:${esc(f.id)}">إدارة التسجيلات</button><button class="btn bad sm" data-act="fx-del" data-id="${esc(f.id)}">حذف</button></div></div>`;
   VIEWS.matches = async () => {
     ctx.mtab = ctx.mtab || 'all';
     const tabs = `<div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="${ctx.mtab === 'all'}" data-act="mtab" data-v="all">كل المباريات (متزامنة)</button><button class="tab" role="tab" aria-selected="${ctx.mtab === 'fixtures'}" data-act="mtab" data-v="fixtures">المباريات العامة</button><button class="tab" role="tab" aria-selected="${ctx.mtab === 'tourn'}" data-act="mtab" data-v="tourn">مباريات البطولات</button></div>`;
@@ -652,6 +652,26 @@
   const byId = (arr, id) => arr.find(x => String(x.id) === String(id));
   const T_STATUS_NEXT = t => t.status === 'cancelled' ? (t.matchCount > 0 ? 'active' : 'registration') : 'cancelled';
   const ACT = {
+    async 'ev-quick'(el) {
+      try {
+        const kind = el.dataset.kind, id = el.dataset.id;
+        const [fx, ms, teams] = await Promise.all([API.fixtures.list(), API.tournaments.matches.all(), API.tournaments.allTeams()]);
+        const mt = kind === 'f' ? byId(fx, id) : byId(ms, id); if (!mt) throw new Error('لم يتم العثور على المباراة.');
+        const teamName = tid => (teams.find(x => x.id === tid) || {}).name || 'الفريق';
+        const A = kind === 'f' ? mt.team_a : teamName(mt.team_a_id), B = kind === 'f' ? mt.team_b : teamName(mt.team_b_id);
+        await formBox({ title: `إضافة تسجيل — ${A} × ${B}`, fields: [
+          { name: 'type', label: 'نوع التسجيل', type: 'select', options: [['goal','هدف'],['assist','صناعة هدف']] },
+          { name: 'side', label: 'الفريق', type: 'select', options: [['a',A],['b',B]] },
+          { name: 'name', label: 'اسم اللاعب', req: true, max: 80 },
+          { name: 'minute', label: 'الدقيقة (اختياري)', type: 'number', min: 0, maxn: 150 },
+        ], save: async v => {
+          if (kind === 'f') await API.events.add('fixture', { fixture_id: id, side: v.side, player_name: v.name.trim(), event_type: v.type, minute: v.minute });
+          else { const team_id = v.side === 'b' ? mt.team_b_id : mt.team_a_id; if (!team_id) throw new Error('حدّد الفريقين أولًا.'); await API.events.add('match', { match_id: id, tournament_id: mt.tournament_id, team_id, player_name: v.name.trim(), event_type: v.type, minute: v.minute }); }
+          toast('تمت إضافة التسجيل من بطاقة المباراة.');
+        } });
+        render(true);
+      } catch (e) { fail(e); }
+    },
     reload: () => render(),
     async 'user-edit'(el) { const u = byId(ctx.users, el.dataset.id); if (!u) return;
       await formBox({ title: 'تعديل المستخدم', note: `رقم الجلوس: ${u.seat_number} (لا يتغير)`, fields: [{ name: 'full_name', label: 'الاسم', req: true, max: 80 }, { name: 'role', label: 'الدور', type: 'select', options: [['student', 'طالب'], ['team_leader', 'مشرف (إدارة المحتوى)']] }, { name: 'approved', label: 'الحساب مفعّل', type: 'checkbox' }],

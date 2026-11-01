@@ -280,3 +280,11 @@ textarea.plain-field{padding:10px 12px}
 
 /* إعلانات الإدارة وروابط الإعدادات */
 .ann-box{display:grid;gap:8px;margin-bottom:12px}.ann{background:var(--gold);color:var(--navy);border-radius:var(--r);padding:12px 14px;box-shadow:0 2px 8px #0f2a5214}.ann h4{font-weight:900}.ann p{font-size:14px;margin-top:2px}a.chip{display:inline-flex;align-items:center;text-decoration:none}
+
+/* أزرار التنقل العلوية داخل صفحة البطولة */
+.tournament-tabs{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding:8px 0 14px;margin:8px 0 14px;position:sticky;top:0;z-index:5;background:var(--bg);scrollbar-width:thin}
+.tournament-tab{flex:1 0 auto;min-width:105px;min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:14px;background:var(--card,var(--surface));color:var(--text);font-weight:800;cursor:pointer}
+.tournament-tab[aria-selected="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+.player-stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.player-stats-grid .panel-card{min-width:0}
+@media(max-width:600px){.player-stats-grid{grid-template-columns:1fr}.tournament-tab{min-width:0;padding:0 12px;font-size:13px}}

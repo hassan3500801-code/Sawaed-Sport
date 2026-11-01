@@ -110,7 +110,7 @@
   // ===== البطولات: إنشاء ثم إضافة الفرق ثم البدء. الترتيب تلقائي حسب النقاط =====
   const FORMAT_NAMES={groups:'مجموعات ثم أدوار إقصائية',league:'دوري من دور واحد',knockout:'خروج المغلوب'};
   const STATUS_NAMES={registration:'التسجيل مفتوح',active:'جارية',completed:'مكتملة',cancelled:'موقوفة'};
-  let tList=[],openTid=null,tEditing=false,openM=null;
+  let tList=[],openTid=null,tEditing=false,openM=null,tViewTab='groups';
   const tn=(t,id)=>t.teams.find(x=>x.id===id)?.name||'يتحدد لاحقًا';
   const roundTitle=n=>n===1?'النهائي':n===2?'نصف النهائي':n===4?'ربع النهائي':'دور الـ'+(n*2);
   const normName=s=>String(s||'').trim().toLowerCase();
@@ -223,7 +223,7 @@
     host.onkeydown=e=>{if(e.key==='Enter')open(e.target.closest('[data-t-open]'));};
     if(openTid)renderTView();
   }
-  function openT(id){openTid=id;tEditing=false;openM=null;evEditing=null;renderTView();if(typeof go==='function')go('tview','tournaments');}
+  function openT(id){openTid=id;tEditing=false;openM=null;evEditing=null;tViewTab='groups';renderTView();if(typeof go==='function')go('tview','tournaments');}
   const teamRow=(t,x,editable)=>{const L=logoByName(x.name);return `<li class="t-team">${avatar(x.name,L.logo)}${editable?`<input class="nin" data-t-rename="${esc(x.id)}" value="${esc(x.name)}" maxlength="40" aria-label="اسم الفريق"><button class="danger" data-t-rm="${esc(x.id)}" aria-label="إزالة الفريق">✕</button>`:(L.id?`<button class="link tname" data-t-team="${esc(L.id)}">${esc(x.name)}</button>`:`<span class="tname">${esc(x.name)}</span>`)}</li>`;};
   function standingsTable(t,teams,matches,title,qual){
     const rows=standings(teams,matches);
@@ -268,19 +268,30 @@
     if(admin&&reg)h+=`<button class="cta" data-t-start ${t.teams.length<2?'disabled':''}>بدء البطولة وتوليد المباريات</button><p class="muted">${t.teams.length<2?'أضف فريقين على الأقل لتتمكن من البدء.':'بعد البدء تُولَّد المباريات تلقائيًا حسب نظام البطولة ويُقفل تعديل الفرق.'}</p>`;
     if(!reg){
       if(admin)h+='<button class="secondary" data-t-reopen>إعادة فتح التسجيل (يحذف المباريات والنتائج)</button>';
-      h+='<p class="note">الترتيب يتحدّث تلقائيًا حسب النقاط ثم فارق الأهداف.</p>';
-      if(t.format==='league')h+=standingsTable(t,t.teams,t.matches,'ترتيب الدوري');
-      if(t.format==='groups')h+=t.groups.map(g=>standingsTable(t,g.teams.map(id=>t.teams.find(x=>x.id===id)).filter(Boolean),t.matches.filter(m=>m.group===g.name),'المجموعة '+g.name,Number(t.qualifiers)||2)).join('')+'<p class="muted">الصفوف المظللة هي الفرق المتأهلة.</p>';
-      h+=topListsHtml(t,admin);
-      const rounds=[];t.matches.forEach(m=>{let r=rounds.find(x=>x.name===m.round);if(!r)rounds.push(r={name:m.round,list:[]});r.list.push(m);});
-      h+='<h3 class="rh">المباريات والنتائج</h3>'+rounds.map(r=>`<h4 class="rh">${esc(r.name)}</h4>${r.list.map(m=>matchCard(t,m,admin)).join('')}`).join('');
-      if(t.format!=='league'&&admin)h+='<p class="muted">في الأدوار الإقصائية لا يوجد تعادل، ويُولَّد الدور التالي تلقائيًا عند اكتمال نتائج الدور.</p>';
-      if(admin&&t.format==='league')h+=`<form id="tMatchForm" class="panel-card form-grid"><h3>إضافة مباراة</h3><select name="a" aria-label="الفريق الأول">${t.teams.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')}</select><select name="b" aria-label="الفريق الثاني">${t.teams.map((x,i)=>`<option value="${esc(x.id)}"${i===1?' selected':''}>${esc(x.name)}</option>`).join('')}</select><button class="cta" type="submit">إضافة المباراة</button></form>`;
+      h+='<p class="note">انتقل بين أقسام البطولة من الأزرار العلوية.</p>';
+      h+=`<nav class="tournament-tabs" role="tablist" aria-label="أقسام البطولة"><button type="button" class="tournament-tab" data-t-tab="groups" aria-selected="${tViewTab==='groups'}">المجموعات</button><button type="button" class="tournament-tab" data-t-tab="knockout" aria-selected="${tViewTab==='knockout'}">الإقصائيات</button><button type="button" class="tournament-tab" data-t-tab="stats" aria-selected="${tViewTab==='stats'}">إحصائيات اللاعبين</button></nav>`;
+      if(tViewTab==='groups'){
+        if(t.format==='league')h+=standingsTable(t,t.teams,t.matches,'ترتيب الدوري');
+        else if(t.format==='groups')h+=t.groups.map(g=>standingsTable(t,g.teams.map(id=>t.teams.find(x=>x.id===id)).filter(Boolean),t.matches.filter(m=>m.group===g.name),'المجموعة '+g.name,Number(t.qualifiers)||2)).join('')+'<p class="muted">الصفوف المظللة هي الفرق المتأهلة.</p>';
+        const gm=t.format==='groups'?t.matches.filter(m=>!!m.group):(t.format==='league'?t.matches:[]);
+        const rounds=[];gm.forEach(m=>{let r=rounds.find(x=>x.name===m.round);if(!r)rounds.push(r={name:m.round,list:[]});r.list.push(m);});
+        h+='<h3 class="rh">مباريات المجموعات</h3>'+rounds.map(r=>`<h4 class="rh">${esc(r.name)}</h4>${r.list.map(m=>matchCard(t,m,admin)).join('')}`).join('');
+        if(!gm.length)h+='<p class="muted">لا توجد مباريات مجموعات بعد.</p>';
+        if(admin&&t.format==='league')h+=`<form id="tMatchForm" class="panel-card form-grid"><h3>إضافة مباراة</h3><select name="a" aria-label="الفريق الأول">${t.teams.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')}</select><select name="b" aria-label="الفريق الثاني">${t.teams.map((x,i)=>`<option value="${esc(x.id)}"${i===1?' selected':''}>${esc(x.name)}</option>`).join('')}</select><button class="cta" type="submit">إضافة المباراة</button></form>`;
+      } else if(tViewTab==='knockout'){
+        const km=t.matches.filter(m=>!m.group),rounds=[];km.forEach(m=>{let r=rounds.find(x=>x.name===m.round);if(!r)rounds.push(r={name:m.round,list:[]});r.list.push(m);});
+        h+='<h3 class="rh">الأدوار الإقصائية</h3>'+rounds.map(r=>`<h4 class="rh">${esc(r.name)}</h4>${r.list.map(m=>matchCard(t,m,admin)).join('')}`).join('');
+        if(!km.length)h+='<p class="muted">لم تبدأ الأدوار الإقصائية بعد.</p>';
+        if(t.format!=='league'&&admin)h+='<p class="muted">في الأدوار الإقصائية لا يوجد تعادل، ويُولَّد الدور التالي تلقائيًا عند اكتمال نتائج الدور.</p>';
+      } else {
+        h+=`<div class="player-stats-grid"><section class="panel-card">${topTable(t,'goal','قائمة الهدافين',admin)}</section><section class="panel-card">${topTable(t,'assist','قائمة صناع الأهداف',admin)}</section></div><p class="muted">تُحتسب الإحصائيات تلقائيًا من تسجيلات المباريات.</p>`;
+      }
     } else if(!admin)h+='<p class="muted">لم تبدأ البطولة بعد. ستظهر المباريات والترتيب بعد بدئها.</p>';
     host.innerHTML=h;
     const commit=async fn=>{fn();const err=await saveT(t);if(err){toast(err);await renderTournaments();return;}renderTView();};
     const addTeam=name=>{name=String(name||'').trim().slice(0,40);if(!name)return 'اكتب اسم الفريق.';if(t.teams.some(x=>normName(x.name)===normName(name)))return 'هذا الفريق مضاف بالفعل.';if(t.teams.length>=64)return 'الحد الأقصى 64 فريقًا.';t.teams.push({id:uid(),name});return null;};
     host.onclick=async e=>{const q=s=>e.target.closest(s);
+      const tab=q('[data-t-tab]');if(tab){tViewTab=tab.dataset.tTab;renderTView();return;}
       if(q('[data-t-back]')){openTid=null;tEditing=false;await renderTournaments();go('tournaments');return;}
       if(q('[data-t-team]')){openTeam(q('[data-t-team]').dataset.tTeam);return;}
       const dt=q('[data-det]');if(dt){const id=dt.dataset.det;openM=openM===id?null:id;evEditing=null;renderTView();return;}
