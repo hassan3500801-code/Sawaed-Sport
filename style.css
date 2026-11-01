@@ -277,3 +277,6 @@ textarea.plain-field{padding:10px 12px}
 .ev-act .link{min-height:28px;text-decoration:underline;color:var(--head);font-size:12px}
 .ev-act .link.bad{color:#e5484d}
 .pl-ren{margin-inline-start:8px;font-size:11px;text-decoration:underline;color:var(--mute)}
+
+/* إعلانات الإدارة وروابط الإعدادات */
+.ann-box{display:grid;gap:8px;margin-bottom:12px}.ann{background:var(--gold);color:var(--navy);border-radius:var(--r);padding:12px 14px;box-shadow:0 2px 8px #0f2a5214}.ann h4{font-weight:900}.ann p{font-size:14px;margin-top:2px}a.chip{display:inline-flex;align-items:center;text-decoration:none}

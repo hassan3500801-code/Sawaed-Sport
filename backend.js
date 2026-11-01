@@ -30,7 +30,7 @@
     window.state && (window.state.admin = isAdmin());
     const sendBtn=$('#sendBtn'); if(sendBtn) sendBtn.hidden=!isAdmin();
     if(isAdmin()&&localTournaments.some(t=>t.legacyImported)){for(const t of localTournaments.filter(t=>t.legacyImported)){try{await persistTournament(t);}catch(err){console.warn('تعذرت مزامنة بطولة قديمة',err);}}}
-    injectAdminSeats();renderAuthState();renderTournaments();renderTeams();renderManagerTools();renderFixtures();renderRank();
+    injectAdminSeats();injectAdminLink();renderAuthState();renderTournaments();renderTeams();renderManagerTools();renderFixtures();renderRank();
   }
   // شارة «حساب موثق» تظهر للمالك والمشرفين فقط
   function accountPill(){const staff=profile&&['admin','team_leader'].includes(profile.role)&&profile.approved;if(staff)return `<p class="status-pill verified">✓ حساب موثق · ${profile.role==='admin'?'المالك':'مشرف'}</p>`;return '';}
@@ -108,7 +108,7 @@
 
   // ===== البطولات: إنشاء ثم إضافة الفرق ثم البدء. الترتيب تلقائي حسب النقاط =====
   const FORMAT_NAMES={groups:'مجموعات ثم أدوار إقصائية',league:'دوري من دور واحد',knockout:'خروج المغلوب'};
-  const STATUS_NAMES={registration:'التسجيل مفتوح',active:'جارية',completed:'مكتملة'};
+  const STATUS_NAMES={registration:'التسجيل مفتوح',active:'جارية',completed:'مكتملة',cancelled:'موقوفة'};
   let tList=[],openTid=null,tEditing=false,openM=null;
   const tn=(t,id)=>t.teams.find(x=>x.id===id)?.name||'يتحدد لاحقًا';
   const roundTitle=n=>n===1?'النهائي':n===2?'نصف النهائي':n===4?'ربع النهائي':'دور الـ'+(n*2);
@@ -543,12 +543,89 @@
   }
   // تحديث تلقائي كل دقيقة لغير المشرفين ليروا حالة المباراة (جارية/انتهت) دون إعادة فتح الموقع
   setInterval(()=>{if(!document.hidden&&!isAdmin())renderFixtures();},60000);
+
+  // ===== لوحة الإدارة: إعدادات التطبيق + الإعلانات + الإشعارات المشتركة + التحديث اللحظي =====
+  let appSettings={},rtChannel=null,rtTimer=null;const rtQueue=new Set();
+  const httpUrl=u=>{try{return /^https?:$/.test(new URL(u).protocol);}catch(e){return false;}};
+  function injectAdminLink(){
+    const host=$('#settings');if(!host)return;let a=$('#adminLinkCard');
+    if(!isAdmin()){a&&a.remove();return;}
+    if(!a){a=document.createElement('div');a.id='adminLinkCard';a.className='panel-card';a.innerHTML='<h3>لوحة الإدارة</h3><p class="muted">إدارة المستخدمين والفرق والبطولات والمباريات والإعلانات.</p><a class="cta" style="text-align:center;text-decoration:none" href="admin.html">فتح لوحة الإدارة</a>';host.appendChild(a);}
+  }
+  async function loadSettings(){
+    if(!sb)return;const {data,error}=await sb.from('app_settings').select('key,value');if(error||!data)return;
+    appSettings=Object.fromEntries(data.map(r=>[r.key,r.value]));applySettings();
+  }
+  function applySettings(){
+    const s=appSettings,name=typeof s.app_name==='string'&&s.app_name.trim();
+    if(name){document.title=name;const h=document.querySelector('.brand h1');if(h)h.textContent=name;}
+    if(typeof s.app_tagline==='string'&&s.app_tagline.trim()){const t=document.querySelector('.brand .tag span');if(t)t.textContent=s.app_tagline.trim();}
+    if(typeof s.app_description==='string'&&s.app_description.trim()){let m=document.querySelector('meta[name=description]');if(!m){m=document.createElement('meta');m.name='description';document.head.appendChild(m);}m.content=s.app_description.trim();}
+    const sl=$('#slider');if(sl)sl.style.display=s.show_slider===false?'none':'';
+    renderAppInfo();
+  }
+  function renderAppInfo(){
+    const host=$('#settings');if(!host)return;let box=$('#appInfoBox');
+    const links=Array.isArray(appSettings.social_links)?appSettings.social_links.filter(l=>l&&httpUrl(l.url)):[];
+    const apk=!!appSettings.apk_enabled&&httpUrl(appSettings.apk_url);
+    const desc=typeof appSettings.app_description==='string'?appSettings.app_description.trim():'';
+    if(!links.length&&!apk&&!desc){box&&box.remove();return;}
+    if(!box){box=document.createElement('div');box.id='appInfoBox';box.className='panel-card';host.appendChild(box);}
+    box.innerHTML=(desc?`<p class="muted">${esc(desc)}</p>`:'')
+      +(links.length?`<h3>تواصل معنا</h3><div class="action-row">${links.map(l=>`<a class="chip" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label||l.url)}</a>`).join('')}</div>`:'')
+      +(apk?`<a class="cta" style="text-align:center;text-decoration:none" href="${esc(appSettings.apk_url)}" rel="noopener noreferrer">تحميل تطبيق الأندرويد${appSettings.apk_version?' ('+esc(appSettings.apk_version)+')':''}</a>`:'');
+  }
+  async function loadAnnouncements(){
+    const host=$('#home');if(!sb||!host)return;
+    const {data,error}=await sb.from('announcements').select('id,title,body,starts_at,ends_at,active').order('starts_at',{ascending:false});if(error)return;
+    const now=Date.now(),list=(data||[]).filter(a=>a.active&&new Date(a.starts_at)<=now&&(!a.ends_at||new Date(a.ends_at)>now));
+    let box=$('#annBox');if(!list.length){box&&box.remove();return;}
+    if(!box){box=document.createElement('div');box.id='annBox';box.className='ann-box';host.insertBefore(box,host.firstChild);}
+    box.innerHTML=list.map(a=>`<article class="ann"><h4>${esc(a.title)}</h4>${a.body?`<p>${esc(a.body)}</p>`:''}</article>`).join('');
+  }
+  async function loadNotifs(){
+    if(!sb||typeof NOTIFS==='undefined')return;
+    const {data,error}=await sb.from('notifications').select('id,title,body,created_at').order('created_at',{ascending:false}).limit(50);if(error||!data)return;
+    NOTIFS=data.map(n=>{const t=new Date(n.created_at).getTime();return {id:t,rid:n.id,title:n.title,text:n.body,t};});
+    try{const sh=$('#notifSheet');if(sh&&!sh.hidden)renderNotifs();badge();}catch(e){/* الواجهة لم تُبنَ بعد */}
+  }
+  window.SawaedRemote={
+    hasRemote:()=>!!sb,
+    async sendNotif(title,text){if(!sb)return 'LOCAL';if(!isAdmin())return 'ليست لديك صلاحية الإرسال.';
+      const {error}=await sb.from('notifications').insert({title,body:text,created_by:currentUser?.id});
+      if(error)return /relation|schema cache|does not exist/i.test(error.message)?'LOCAL':'تعذر الإرسال: '+error.message;
+      await loadNotifs();return null;},
+    async delNotif(rid){if(!sb||!rid)return 'LOCAL';const {error}=await sb.from('notifications').delete().eq('id',rid);
+      if(error)return 'تعذر الحذف: '+error.message;await loadNotifs();return null;},
+  };
+  // تحديث لحظي: أي تعديل من لوحة الإدارة أو من مشرف آخر يظهر للجميع دون إعادة فتح التطبيق
+  function startRealtime(){
+    if(!sb||rtChannel||typeof sb.channel!=='function')return;
+    rtChannel=sb.channel('sawaed-live');
+    ['fixtures','fixture_scorers','matches','match_scorers','tournaments','teams','team_standings','team_catalog','announcements','notifications','app_settings']
+      .forEach(t=>rtChannel.on('postgres_changes',{event:'*',schema:'public',table:t},()=>{rtQueue.add(t);clearTimeout(rtTimer);rtTimer=setTimeout(flushRealtime,500);}));
+    rtChannel.subscribe();
+  }
+  async function flushRealtime(){
+    const a=document.activeElement;
+    if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)){rtTimer=setTimeout(flushRealtime,3000);return;}   // لا نقاطع من يكتب
+    const q=new Set(rtQueue);rtQueue.clear();const has=(...n)=>n.some(x=>q.has(x));const todo=[];
+    if(has('fixtures','fixture_scorers'))todo.push(renderFixtures());
+    if(has('tournaments','teams','matches','match_scorers')&&!tEditing)todo.push(renderTournaments());
+    if(has('team_standings'))todo.push(renderRank());
+    if(has('team_catalog')&&!teamEditing)todo.push(renderTeams());
+    if(has('announcements'))todo.push(loadAnnouncements());
+    if(has('notifications'))todo.push(loadNotifs());
+    if(has('app_settings'))todo.push(loadSettings());
+    try{await Promise.all(todo);}catch(e){console.warn('تعذر التحديث اللحظي',e);}
+  }
+  setInterval(()=>{if(!document.hidden)loadAnnouncements();},60000);   // انتهاء مدة الإعلان
   document.addEventListener('DOMContentLoaded',()=>{
     window.__sawaedAdminDemo=false;
     document.querySelectorAll('[data-auth-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.authMode)));
     $('#authForm')?.addEventListener('submit',authSubmit);setMode('login');injectAdminSeats();renderManagerTools();
-    if(sb)sb.auth.onAuthStateChange(()=>setTimeout(refreshUser,0));
-    refreshUser();
+    if(sb)sb.auth.onAuthStateChange(()=>setTimeout(()=>{refreshUser();loadAnnouncements();},0));
+    refreshUser();loadSettings();loadAnnouncements();loadNotifs();startRealtime();
     const oldGo=window.go;if(typeof oldGo==='function'){/* existing navigation remains in charge */}
   });
   // expose a safe refresh hook for the existing navigation and admin toggle

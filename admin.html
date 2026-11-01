@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>لوحة إدارة سواعد</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<!-- يُعرض المحتوى فقط بعد التحقق من الصلاحية؛ وإلا يُحوَّل المستخدم للصفحة الرئيسية. الحماية الفعلية في Supabase (RLS). -->
+<div class="gate" id="gate" role="status"><img src="logo.png" alt="" width="96" height="96"><p id="gateMsg">جارٍ التحقق من الصلاحية…</p></div>
+
+<div class="shell" id="shell" hidden>
+  <aside class="side" id="side" aria-label="أقسام الإدارة">
+    <div class="side-brand"><img src="logo.png" alt="شعار سواعد" width="44" height="44"><div><b>سواعد</b><small>لوحة الإدارة</small></div></div>
+    <nav id="nav"></nav>
+    <div class="side-foot">
+      <div class="who"><b id="whoName">—</b><small id="whoRole"></small></div>
+      <a class="side-link" href="index.html">العودة إلى التطبيق</a>
+      <button class="side-out" id="signOut" type="button">تسجيل الخروج</button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+  <div class="main">
+    <header class="bar">
+      <button class="icon-btn menu-btn" id="menuBtn" type="button" aria-label="فتح القائمة"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <h1 id="pageTitle">لوحة التحكم</h1>
+      <span class="live" id="live" title="حالة الاتصال المباشر">غير متصل</span>
+    </header>
+    <main id="view" tabindex="-1"></main>
+  </div>
+</div>
+<div id="toasts" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="admin-backend.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

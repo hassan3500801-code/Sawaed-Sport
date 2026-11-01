@@ -1,45 +1,3 @@
-// ===== تحميل تطبيق سواعد للأندرويد =====
-// حدّث هذا المسار فقط عند تغيير مكان ملف APK على الاستضافة.
-// الملف المرفق مع المشروع موجود في: downloads/sawaed.apk
-const SAWAED_APK_URL = 'downloads/sawaed.apk';
-
-function isInstalledAppMode(){
-  const displayMode = window.matchMedia && (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.matchMedia('(display-mode: fullscreen)').matches ||
-    window.matchMedia('(display-mode: minimal-ui)').matches
-  );
-  const legacyStandalone = window.navigator.standalone === true;
-  const ua = window.navigator.userAgent || '';
-  // Android System WebView يضيف عادةً الرمز wv أو Version/4.0 إلى User-Agent.
-  const androidWebView = /Android/i.test(ua) && ( /;\s*wv\)/i.test(ua) || /Version\/4\.0.*Chrome\//i.test(ua) );
-  // جسر JavaScript اختياري إذا كان تطبيق WebView يعرّف واجهة أصلية.
-  const nativeBridge = !!(window.Android || window.SawaedAndroid || window.androidBridge);
-  // Trusted Web Activity يمرّر عادةً android-app:// في document.referrer.
-  const twaLaunch = /^android-app:\/\//i.test(document.referrer || '');
-  return !!(displayMode || legacyStandalone || androidWebView || nativeBridge || twaLaunch);
-}
-
-function initApkDownload(){
-  const option = document.getElementById('apkDownloadOption');
-  const status = document.getElementById('apkDownloadStatus');
-  if(!option || !status) return;
-
-  // لا تعرض رابط التحميل داخل التطبيق المثبّت بأي من أوضاع التشغيل المدعومة.
-  if(isInstalledAppMode()){
-    option.hidden = true;
-    status.hidden = true;
-    return;
-  }
-
-  option.hidden = false;
-  option.href = SAWAED_APK_URL;
-  option.addEventListener('click', function(){
-    status.textContent = 'جاري تحميل تطبيق سواعد...';
-    status.hidden = false;
-  });
-}
-
 // ===== البيانات التجريبية =====
 const SPORTS = [
   {id:'football', name:'كرة القدم', icon:'ball'},
@@ -174,8 +132,12 @@ function sendNotif(){
   if(!state.admin) return;
   const title = $('#nTitle').value.trim(), text = $('#nText').value.trim();
   if(!title || !text){ $('#nErr').textContent = 'اكتب العنوان والنص'; return; }
-  NOTIFS.unshift({id: Math.max(0, ...NOTIFS.map(n => n.id)) + 1, title, text, t: Date.now()}); saveN();
-  $('#nTitle').value = $('#nText').value = ''; $('#nErr').textContent = ''; openNotifs();
+  const done = () => { $('#nTitle').value = $('#nText').value = ''; $('#nErr').textContent = ''; openNotifs(); };
+  const local = () => { NOTIFS.unshift({id: Math.max(0, ...NOTIFS.map(n => n.id)) + 1, title, text, t: Date.now()}); saveN(); done(); };
+  // مع Supabase يصل الإشعار لجميع المستخدمين؛ بدونه (أو قبل تشغيل ADMIN_SETUP.sql) يبقى محليًا كما كان
+  if(window.SawaedRemote && window.SawaedRemote.hasRemote()){
+    window.SawaedRemote.sendNotif(title, text).then(r => { if(r === 'LOCAL') local(); else if(r) $('#nErr').textContent = r; else done(); });
+  } else local();
 }
 
 // ===== نظام البطولات =====
@@ -372,7 +334,7 @@ function applyTheme(dark){ document.documentElement.dataset.theme = dark ? 'dark
 
 // ===== التشغيل =====
 document.addEventListener('DOMContentLoaded', () => {
-  initApkDownload(); paintIcons(); renderSports(); renderRank(); renderLists(); initSlider(); renderBar(); bindGo();
+  paintIcons(); renderSports(); renderRank(); renderLists(); initSlider(); renderBar(); bindGo();
   tick(); setInterval(tick, 1000);
   $('#details').onclick = () => sheet(true);
   $('#closeSheet').onclick = $('#back').onclick = () => sheet(false);
@@ -391,5 +353,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', e => { if(e.target.closest('[data-close]')) showPanel(null); });
   $('#sendBtn').onclick = () => { $('#nErr').textContent = ''; showPanel('sendSheet'); $('#nTitle').focus(); };
   $('#nSend').onclick = sendNotif;
-  $('#nlist').onclick = e => { const d = e.target.closest('[data-del]'); if(d && state.admin){ NOTIFS = NOTIFS.filter(n => n.id !== +d.dataset.del); saveN(); renderNotifs(); badge(); } };
+  $('#nlist').onclick = async e => { const d = e.target.closest('[data-del]'); if(!(d && state.admin)) return;
+    const n = NOTIFS.find(x => x.id === +d.dataset.del);
+    if(n && n.rid && window.SawaedRemote){ const r = await window.SawaedRemote.delNotif(n.rid); if(r === null){ renderNotifs(); badge(); return; } if(r !== 'LOCAL'){ if(typeof toast === 'function') toast(r); else alert(r); return; } }
+    NOTIFS = NOTIFS.filter(x => x.id !== +d.dataset.del); saveN(); renderNotifs(); badge(); };
 });
